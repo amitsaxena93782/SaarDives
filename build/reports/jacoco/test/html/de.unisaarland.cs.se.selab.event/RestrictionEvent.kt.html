@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RestrictionEvent.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.event</a> &gt; <span class="el_source">RestrictionEvent.kt</span></div><h1>RestrictionEvent.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.event
+
+import de.unisaarland.cs.se.selab.Logger
+import de.unisaarland.cs.se.selab.data.OceanMap
+import de.unisaarland.cs.se.selab.data.Tile
+import de.unisaarland.cs.se.selab.parser.JsonKeys
+
+/**
+ * this event blocks a tile for a specific duration
+ */
+<span class="nc" id="L11">class RestrictionEvent(</span>
+<span class="nc" id="L12">    private val radius: Int,</span>
+<span class="nc" id="L13">    private var duration: Int,</span>
+<span class="nc" id="L14">    val location: Tile,</span>
+    id: Int,
+    tick: Int
+<span class="nc" id="L17">) : DurationEvent(id, tick) {</span>
+
+    override fun execute(oceanMap: OceanMap) {
+<span class="nc" id="L20">        Logger.logEvent(id, JsonKeys.RESTRICTION)</span>
+<span class="nc bnc" id="L21" title="All 2 branches missed.">        for (tile in oceanMap.getTilesInRadius(location, radius)) {</span>
+<span class="nc" id="L22">            tile.numRestrictions++</span>
+        }
+<span class="nc" id="L24">    }</span>
+
+    override fun update(oceanMap: OceanMap): Boolean {
+<span class="nc" id="L27">        duration--</span>
+<span class="nc bnc" id="L28" title="All 2 branches missed.">        return if (duration == 0) {</span>
+<span class="nc bnc" id="L29" title="All 2 branches missed.">            for (tile in oceanMap.getTilesInRadius(location, radius)) {</span>
+<span class="nc" id="L30">                tile.numRestrictions--</span>
+            }
+<span class="nc" id="L32">            true</span>
+        } else {
+<span class="nc" id="L34">            false</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

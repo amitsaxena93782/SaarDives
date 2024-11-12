@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DriftingUtil.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.control</a> &gt; <span class="el_source">DriftingUtil.kt</span></div><h1>DriftingUtil.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.control
+
+import de.unisaarland.cs.se.selab.Constants
+import de.unisaarland.cs.se.selab.data.Garbage
+import de.unisaarland.cs.se.selab.data.OceanMap
+import de.unisaarland.cs.se.selab.data.Tile
+import de.unisaarland.cs.se.selab.enums.Direction
+import de.unisaarland.cs.se.selab.enums.GarbageType
+import de.unisaarland.cs.se.selab.enums.TileType
+
+/**
+ * Utility object for handling drifting behavior of garbage on the ocean map,
+ * since this is needed in the DriftHandler as well as in the storm event.
+ * Provides methods to compute drift paths and handle garbage movement based on speed, direction,
+ * and tile conditions (e.g., oil limits and deep ocean removal of chemicals).
+ */
+object DriftingUtil {
+
+    /**
+     * Computes a list of candidate tiles to drift to. Taking into account speed and direction
+     * and also stopping as soon as we would reach a non-traversable tile. The list is reversed,
+     * so the furthest away tile is at the start of the list.
+     */
+    fun getCandidateDriftTiles(oceanMap: OceanMap, tile: Tile, direction: Direction, speed: Int): List&lt;Tile&gt; {
+        // Generates a sequence of tiles going in the direction of the current and stopping
+        // if we would reach a non-traversable tile (since land tiles are removed from the map,
+        // oceanMap.getNeighbour(it, direction) returns null for both empty tiles and land tiles).
+<span class="fc" id="L28">        val candidateDriftTiles = generateSequence(tile) { oceanMap.getNeighbour(it, direction) }</span>
+            // Takes tiles from the sequence according to the given speed or less if the sequence is shorter.
+<span class="fc" id="L30">            .take(speed / Constants.TILE_DISTANCE + 1).toList()</span>
+<span class="fc" id="L31">        return candidateDriftTiles.asReversed()</span>
+    }
+
+    /**
+     * Drifts the given garbage according to speed, direction and oil limit conditions.
+     * Also removes chemicals from the map, if they drifted into the deep ocean.
+     */
+    fun driftGarbage(oceanMap: OceanMap, garbage: Garbage, tile: Tile, direction: Direction, speed: Int) {
+<span class="fc" id="L39">        val candidateDriftTiles = getCandidateDriftTiles(oceanMap, tile, direction, speed)</span>
+
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">        for (candidateDriftTile in candidateDriftTiles) {</span>
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">            if (canDriftOnTile(oceanMap, garbage, candidateDriftTile)) {</span>
+<span class="fc" id="L43">                oceanMap.moveGarbage(garbage, candidateDriftTile)</span>
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">                val isChemicals = garbage.type == GarbageType.CHEMICALS</span>
+<span class="pc bpc" id="L45" title="1 of 2 branches missed.">                val isDeepOcean = candidateDriftTile.type == TileType.DEEP_OCEAN</span>
+<span class="pc bpc" id="L46" title="3 of 4 branches missed.">                if (isChemicals &amp;&amp; isDeepOcean) {</span>
+<span class="nc" id="L47">                    oceanMap.removeGarbage(garbage)</span>
+                }
+<span class="fc" id="L49">                return</span>
+            }
+        }
+<span class="nc" id="L52">    }</span>
+
+    /**
+     * Checks that we don't surpass the maximum oil amount on a tile when drifting.
+     */
+    private fun canDriftOnTile(oceanMap: OceanMap, garbage: Garbage, tile: Tile): Boolean {
+<span class="pc bpc" id="L58" title="1 of 2 branches missed.">        if (garbage.type != GarbageType.OIL) return true</span>
+<span class="fc" id="L59">        val garbageOnTile = oceanMap.getGarbageOnTile(tile)</span>
+<span class="pc bpc" id="L60" title="1 of 2 branches missed.">        val oilSumOnTile = SumsPerTypeUtil.getGarbageSumsPerType(garbageOnTile)[GarbageType.OIL] ?: 0</span>
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">        return oilSumOnTile + garbage.amount &lt;= Constants.MAX_OIL_AMOUNT</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

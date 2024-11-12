@@ -1,0 +1,550 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ScenarioParser.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.parser</a> &gt; <span class="el_source">ScenarioParser.kt</span></div><h1>ScenarioParser.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.parser
+import com.github.erosb.jsonsKema.FormatValidationPolicy
+import com.github.erosb.jsonsKema.JsonParser
+import com.github.erosb.jsonsKema.JsonValue
+import com.github.erosb.jsonsKema.SchemaLoader
+import com.github.erosb.jsonsKema.ValidationFailure
+import com.github.erosb.jsonsKema.Validator
+import com.github.erosb.jsonsKema.ValidatorConfig
+import de.unisaarland.cs.se.selab.Constants
+import de.unisaarland.cs.se.selab.data.Garbage
+import de.unisaarland.cs.se.selab.data.Reward
+import de.unisaarland.cs.se.selab.data.TaskData
+import de.unisaarland.cs.se.selab.data.Tile
+import de.unisaarland.cs.se.selab.enums.GarbageType
+import de.unisaarland.cs.se.selab.enums.RewardType
+import de.unisaarland.cs.se.selab.enums.TaskType
+import de.unisaarland.cs.se.selab.enums.TileType
+import de.unisaarland.cs.se.selab.event.Event
+import de.unisaarland.cs.se.selab.event.OilEvent
+import de.unisaarland.cs.se.selab.event.PirateEvent
+import de.unisaarland.cs.se.selab.event.RestrictionEvent
+import de.unisaarland.cs.se.selab.event.StormEvent
+import de.unisaarland.cs.se.selab.event.TyphoonEvent
+import de.unisaarland.cs.se.selab.task.CollectingTask
+import de.unisaarland.cs.se.selab.task.CooperationTask
+import de.unisaarland.cs.se.selab.task.ExploreTask
+import de.unisaarland.cs.se.selab.task.FindTask
+import de.unisaarland.cs.se.selab.task.Task
+import org.json.JSONArray
+import org.json.JSONObject
+
+/**
+ * The ScenarioParser class that parses the scenario JSON data
+ * and creates the data objects
+ */
+<span class="fc" id="L36">class ScenarioParser(private val simulationData: SimulationData) {</span>
+<span class="pc bpc" id="L37" title="1 of 2 branches missed.">    private val oceanMap = simulationData.oceanMap ?: error(&quot;Ocean Map didn't exist when parsing corporations.&quot;)</span>
+<span class="fc" id="L38">    private val eventsMap: MutableMap&lt;Int, Event&gt; = mutableMapOf()</span>
+<span class="fc" id="L39">    private val tasksMap: MutableMap&lt;Int, Task&gt; = mutableMapOf()</span>
+<span class="fc" id="L40">    private val garbageMap: MutableMap&lt;Int, Garbage&gt; = mutableMapOf()</span>
+<span class="fc" id="L41">    private val rewardsMap: MutableMap&lt;Int, Reward&gt; = mutableMapOf()</span>
+<span class="fc" id="L42">    private val garbageToTile: MutableMap&lt;Garbage, Tile&gt; = mutableMapOf()</span>
+
+    /**
+     * Parse the JSON file for the scenario data.
+     */
+    fun parse(jsonString: String): Result&lt;Unit&gt; {
+<span class="fc" id="L48">        val schema = SchemaLoader.forURL(&quot;classpath://schema/scenario.schema&quot;).load()</span>
+<span class="fc" id="L49">        val validator = Validator.create(schema, ValidatorConfig(FormatValidationPolicy.ALWAYS))</span>
+
+<span class="fc" id="L51">        val jsonInstance: JsonValue = JsonParser(jsonString).parse()</span>
+<span class="fc" id="L52">        val failure: ValidationFailure? = validator.validate(jsonInstance)</span>
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">        if (failure != null) {</span>
+<span class="nc" id="L54">            return Result.failure(ParserException(failure.message))</span>
+        }
+
+<span class="fc" id="L57">        val json = JSONObject(jsonString)</span>
+<span class="fc" id="L58">        val events = json.getJSONArray(JsonKeys.EVENTS)</span>
+<span class="fc" id="L59">        val tasks = json.getJSONArray(JsonKeys.TASKS)</span>
+<span class="fc" id="L60">        val garbage = json.getJSONArray(JsonKeys.GARBAGE)</span>
+<span class="fc" id="L61">        val rewards = json.getJSONArray(JsonKeys.REWARDS)</span>
+
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">        parseConfig(events, garbage, rewards, tasks).onFailure { return Result.failure(it) }</span>
+
+        // add garbage to map
+<span class="fc" id="L66">        garbageToTile.forEach { (garbage, tile) -&gt; oceanMap.addGarbage(garbage, tile) }</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">        validateOilAmount().onFailure { return Result.failure(it) }</span>
+<span class="fc" id="L68">        return Result.success(Unit)</span>
+    }
+
+    /**
+     * Calls sub parsing methods for each of the JSON arrays.
+     * @return Success in case no validation failed, otherwise the first failure encountered.
+     */
+    private fun parseConfig(
+        events: JSONArray,
+        garbage: JSONArray,
+        rewards: JSONArray,
+        tasks: JSONArray
+    ): Result&lt;Unit&gt; {
+<span class="pc" id="L81">        parseEvents(events).onFailure { return Result.failure(it) }</span>
+<span class="fc" id="L82">        simulationData.events.putAll(eventsMap)</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        parseGarbage(garbage).onFailure { return Result.failure(it) }</span>
+<span class="fc" id="L84">        simulationData.garbage.putAll(garbageMap)</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">        parseRewards(rewards).onFailure { return Result.failure(it) }</span>
+<span class="fc" id="L86">        simulationData.rewards.putAll(rewardsMap)</span>
+<span class="pc bpc" id="L87" title="2 of 4 branches missed.">        parseTasks(tasks).onFailure { return Result.failure(it) }</span>
+<span class="fc" id="L88">        simulationData.tasks.putAll(tasksMap)</span>
+<span class="fc" id="L89">        return Result.success(Unit)</span>
+    }
+
+    private fun parseEvents(events: JSONArray): Result&lt;Unit&gt; {
+<span class="fc" id="L93">        events.forEach { event -&gt;</span>
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">            if (event is JSONObject) {</span>
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">                val newEvent = Events.createEventFromJson(event, simulationData).getOrElse { return Result.failure(it) }</span>
+                // check if the event id is unique
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">                if (eventsMap.containsKey(newEvent.id)) {</span>
+<span class="nc" id="L98">                    return Result.failure(ParserException(&quot;Event id ${newEvent.id} is not unique&quot;))</span>
+                }
+<span class="fc" id="L100">                eventsMap[newEvent.id] = newEvent</span>
+            }
+<span class="fc" id="L102">        }</span>
+<span class="fc" id="L103">        return Result.success(Unit)</span>
+    }
+
+    private fun parseTasks(tasks: JSONArray): Result&lt;Unit&gt; {
+<span class="fc" id="L107">        tasks.forEach { task -&gt;</span>
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">            if (task is JSONObject) {</span>
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">                val newTask = validateAndCreateTask(task).getOrElse { return Result.failure(it) }</span>
+                // check if the task id is unique
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">                if (tasksMap.containsKey(newTask.id)) {</span>
+<span class="nc" id="L112">                    return Result.failure(ParserException(&quot;Task id ${newTask.id} is not unique&quot;))</span>
+                }
+<span class="fc" id="L114">                tasksMap[newTask.id] = newTask</span>
+            }
+<span class="fc" id="L116">        }</span>
+        // cross validate rewards and tasks
+<span class="pc bpc" id="L118" title="1 of 2 branches missed.">        crossValidateRewards().onFailure { return Result.failure(it) }</span>
+
+<span class="fc" id="L120">        return Result.success(Unit)</span>
+    }
+
+    private fun parseGarbage(garbage: JSONArray): Result&lt;Unit&gt; {
+<span class="fc" id="L124">        garbage.forEach { garbageObject -&gt;</span>
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">            if (garbageObject is JSONObject) {</span>
+<span class="fc" id="L126">                val newGarbage = validateAndCreateGarbage(garbageObject)</span>
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">                    .getOrElse { return Result.failure(it) }</span>
+                // check if the garbage id is unique
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">                if (garbageMap.containsKey(newGarbage.id)) {</span>
+<span class="nc" id="L130">                    return Result.failure(ParserException(&quot;Garbage id ${newGarbage.id} is not unique&quot;))</span>
+                }
+<span class="fc" id="L132">                garbageMap[newGarbage.id] = newGarbage</span>
+            }
+<span class="fc" id="L134">        }</span>
+<span class="fc" id="L135">        return Result.success(Unit)</span>
+    }
+
+    private fun parseRewards(rewards: JSONArray): Result&lt;Unit&gt; {
+<span class="fc" id="L139">        rewards.forEach { reward -&gt;</span>
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">            if (reward is JSONObject) {</span>
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">                val newReward = validateAndCreateRewards(reward).getOrElse { return Result.failure(it) }</span>
+                // check if the reward id is unique
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">                if (rewardsMap.containsKey(newReward.id)) {</span>
+<span class="nc" id="L144">                    return Result.failure(ParserException(&quot;Reward id ${newReward.id} is not unique&quot;))</span>
+                }
+<span class="fc" id="L146">                rewardsMap[newReward.id] = newReward</span>
+            }
+<span class="fc" id="L148">        }</span>
+<span class="fc" id="L149">        return Result.success(Unit)</span>
+    }
+
+    private fun validateAndCreateTask(task: JSONObject): Result&lt;Task&gt; {
+<span class="fc" id="L153">        val allowedKeys = setOf(</span>
+<span class="fc" id="L154">            JsonKeys.ID,</span>
+<span class="fc" id="L155">            JsonKeys.TYPE,</span>
+<span class="fc" id="L156">            JsonKeys.REWARD_SHIP,</span>
+<span class="fc" id="L157">            JsonKeys.TICK,</span>
+<span class="fc" id="L158">            JsonKeys.SHIP_ID,</span>
+<span class="fc" id="L159">            JsonKeys.TARGET_TILE,</span>
+<span class="fc" id="L160">            JsonKeys.REWARD_ID</span>
+        )
+        // check if the keys are valid for the task
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">        if (task.keySet() != allowedKeys) {</span>
+<span class="nc" id="L164">            return Result.failure(ParserException(&quot;Invalid keys for task: ${task.keySet()}&quot;))</span>
+        }
+
+<span class="fc" id="L167">        val id = task.getInt(JsonKeys.ID)</span>
+<span class="fc" id="L168">        val rewardId = task.getInt(JsonKeys.REWARD_ID)</span>
+<span class="fc" id="L169">        val targetTileId = task.getInt(JsonKeys.TARGET_TILE)</span>
+<span class="fc" id="L170">        val shipId = task.getInt(JsonKeys.SHIP_ID)</span>
+<span class="fc" id="L171">        val rewardShip = task.getInt(JsonKeys.REWARD_SHIP)</span>
+
+<span class="fc" id="L173">        validateCommonTaskProperties(id, rewardId, shipId, rewardShip, targetTileId)</span>
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">            .onFailure { return Result.failure(it) }</span>
+
+<span class="fc" id="L176">        val reward = simulationData.rewards.getValue(rewardId)</span>
+<span class="fc" id="L177">        val tile = simulationData.tiles.getValue(targetTileId)</span>
+
+<span class="fc" id="L179">        val taskData = TaskData(</span>
+<span class="fc" id="L180">            id,</span>
+<span class="fc" id="L181">            task.getInt(JsonKeys.TICK),</span>
+<span class="fc" id="L182">            shipId,</span>
+<span class="fc" id="L183">            reward,</span>
+<span class="fc" id="L184">            rewardShip,</span>
+<span class="fc" id="L185">            tile</span>
+        )
+
+<span class="fc" id="L188">        val type = TaskType.createTaskType(task.getString(JsonKeys.TYPE))</span>
+<span class="pc bpc" id="L189" title="3 of 4 branches missed.">        return when (type) {</span>
+<span class="nc" id="L190">            TaskType.COLLECT -&gt; Result.success(CollectingTask(taskData))</span>
+<span class="fc" id="L191">            TaskType.EXPLORE -&gt; Result.success(ExploreTask(taskData))</span>
+<span class="nc" id="L192">            TaskType.FIND -&gt; Result.success(FindTask(taskData))</span>
+<span class="nc" id="L193">            TaskType.COOPERATE -&gt; createAndValidateCoordinatingTask(taskData)</span>
+        }
+    }
+
+    private fun validateCommonTaskProperties(
+        taskID: Int,
+        rewardID: Int,
+        shipID: Int,
+        rewardShipID: Int,
+        targetTileID: Int
+    ): Result&lt;Unit&gt; {
+<span class="pc bpc" id="L204" title="1 of 2 branches missed.">        if (!simulationData.rewards.containsKey(rewardID)) {</span>
+<span class="nc" id="L205">            return Result.failure(</span>
+<span class="nc" id="L206">                ParserException(&quot;Task ID $taskID specified reward ID $rewardShipID, which does not exist&quot;)</span>
+            )
+<span class="pc bpc" id="L208" title="1 of 2 branches missed.">        } else if (!simulationData.ships.containsKey(shipID)) {</span>
+<span class="nc" id="L209">            return Result.failure(ParserException(&quot;Task ID $taskID specified ship ID $shipID, which does not exist&quot;))</span>
+<span class="pc bpc" id="L210" title="1 of 2 branches missed.">        } else if (!simulationData.ships.containsKey(rewardShipID)) {</span>
+<span class="nc" id="L211">            return Result.failure(ParserException(&quot;Task ID $taskID specified ship ID $shipID, which does not exist&quot;))</span>
+<span class="pc bpc" id="L212" title="1 of 2 branches missed.">        } else if (!simulationData.tiles.containsKey(targetTileID) ||</span>
+<span class="pc bpc" id="L213" title="1 of 2 branches missed.">            simulationData.tiles.getValue(targetTileID).type == TileType.LAND</span>
+        ) {
+<span class="nc" id="L215">            return Result.failure(ParserException(&quot;Task ID $taskID specified invalid tile with ID $targetTileID&quot;))</span>
+        }
+
+<span class="fc" id="L218">        return Result.success(Unit)</span>
+    }
+
+    private fun createAndValidateCoordinatingTask(taskData: TaskData): Result&lt;Task&gt; {
+        // get the corporation's ID the ship this task is assigned to
+<span class="nc" id="L223">        val corpID = simulationData.corporations.values.first {</span>
+                corp -&gt;
+<span class="nc bnc" id="L225" title="All 2 branches missed.">            corp.ships.any { ship -&gt; ship.id == taskData.shipId }</span>
+<span class="nc" id="L226">        }.id</span>
+
+<span class="nc" id="L228">        val tile = taskData.destination</span>
+
+        // see if the specified destination tile is a harbor hosting a different corporation
+<span class="nc" id="L231">        val targetIsHarborOfDifferentCorp = simulationData.corporations.values</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">            .filter { it.id != corpID }</span>
+<span class="nc" id="L233">            .any { it.harbors.contains(tile) }</span>
+
+<span class="nc bnc" id="L235" title="All 2 branches missed.">        return if (!targetIsHarborOfDifferentCorp) {</span>
+<span class="nc" id="L236">            Result.failure(</span>
+<span class="nc" id="L237">                ParserException(</span>
+<span class="nc" id="L238">                    &quot;Cooperating Task ${taskData.id} specified a target that isn't a harbor hosting a different &quot; +</span>
+                        &quot;corporation.&quot;
+                )
+            )
+        } else {
+<span class="nc" id="L243">            Result.success(CooperationTask(taskData))</span>
+        }
+    }
+
+    private fun validateAndCreateRewards(reward: JSONObject): Result&lt;Reward&gt; {
+<span class="fc" id="L248">        var visibility: Int? = null</span>
+<span class="fc" id="L249">        var capacity: Int? = null</span>
+<span class="fc" id="L250">        var garbageType: GarbageType? = null</span>
+<span class="fc" id="L251">        val defaultKeys = setOf(JsonKeys.ID, JsonKeys.TYPE)</span>
+<span class="fc" id="L252">        val type = RewardType.createRewardType(reward.getString(JsonKeys.TYPE))</span>
+        // match the type with enum values to check for the further keys based on the type
+<span class="pc bpc" id="L254" title="2 of 3 branches missed.">        when (type) {</span>
+            RewardType.TELESCOPE -&gt; {
+<span class="fc" id="L256">                val allowedKeys = defaultKeys + setOf(JsonKeys.VISIBILITY_RANGE)</span>
+<span class="pc bpc" id="L257" title="1 of 2 branches missed.">                if (reward.keySet() != allowedKeys) {</span>
+<span class="nc" id="L258">                    return Result.failure(ParserException(&quot;Invalid keys for reward telescope: ${reward.keySet()}&quot;))</span>
+                }
+<span class="fc" id="L260">                visibility = reward.getInt(JsonKeys.VISIBILITY_RANGE)</span>
+            }
+
+            RewardType.CONTAINER -&gt; {
+<span class="nc" id="L264">                val allowedKeys = defaultKeys + setOf(JsonKeys.CAPACITY, JsonKeys.GARBAGE_TYPE)</span>
+<span class="nc" id="L265">                val garbage = reward.getString(JsonKeys.GARBAGE_TYPE)</span>
+<span class="nc bnc" id="L266" title="All 2 branches missed.">                if (reward.keySet() != allowedKeys) {</span>
+<span class="nc" id="L267">                    return Result.failure(ParserException(&quot;Invalid keys for reward container: ${reward.keySet()}&quot;))</span>
+                }
+<span class="nc" id="L269">                capacity = reward.getInt(JsonKeys.CAPACITY)</span>
+                // check if the garbage type is of a proper type
+<span class="nc bnc" id="L271" title="All 2 branches missed.">                if (GarbageType.entries.toTypedArray().none { it.name == garbage }) {</span>
+<span class="nc" id="L272">                    return Result.failure(ParserException(&quot;Invalid garbage type for container reward: $garbage&quot;))</span>
+                }
+<span class="nc" id="L274">                garbageType = GarbageType.createGarbageType(garbage)</span>
+            }
+            // default case only default keys are allowed
+            else -&gt; {
+<span class="nc bnc" id="L278" title="All 2 branches missed.">                if (reward.keySet() != defaultKeys) {</span>
+<span class="nc" id="L279">                    return Result.failure(ParserException(&quot;Invalid keys for reward: ${reward.keySet()}&quot;))</span>
+                }
+            }
+        }
+<span class="fc" id="L283">        return Result.success(</span>
+<span class="fc" id="L284">            Reward(</span>
+<span class="fc" id="L285">                reward.getInt(JsonKeys.ID),</span>
+<span class="fc" id="L286">                type,</span>
+<span class="fc" id="L287">                visibility,</span>
+<span class="fc" id="L288">                capacity,</span>
+<span class="fc" id="L289">                garbageType</span>
+            )
+        )
+    }
+
+    /**
+     * Checks task-reward assignment.
+     */
+    private fun crossValidateRewards(): Result&lt;Unit&gt; {
+        // check if a reward is only assigned to one task
+<span class="fc" id="L299">        val rewards = mutableSetOf&lt;Reward&gt;()</span>
+<span class="fc bfc" id="L300" title="All 2 branches covered.">        for (task in tasksMap.values) {</span>
+<span class="pc bpc" id="L301" title="1 of 2 branches missed.">            if (task.reward in rewards) {</span>
+<span class="nc" id="L302">                return Result.failure(ParserException(&quot;Reward ${task.reward.id} is assigned to two tasks.&quot;))</span>
+            }
+<span class="fc" id="L304">            rewards.add(task.reward)</span>
+        }
+
+        // check if reward type corresponds to the task type
+<span class="fc" id="L308">        tasksMap.values</span>
+<span class="pc" id="L309">            .firstOrNull { task -&gt;</span>
+<span class="pc bpc" id="L310" title="1 of 2 branches missed.">                task.getType() != RewardType.correspondingTaskType(task.reward.type)</span>
+            }
+<span class="pc bpc" id="L312" title="1 of 2 branches missed.">            ?.let { return Result.failure(ParserException(&quot;Task ${it.id} has incompatible reward ${it.reward.id}&quot;)) }</span>
+
+<span class="fc" id="L314">        return Result.success(Unit)</span>
+    }
+
+    private fun validateAndCreateGarbage(garbage: JSONObject): Result&lt;Garbage&gt; {
+<span class="fc" id="L318">        val allowedKeys = setOf(JsonKeys.ID, JsonKeys.TYPE, JsonKeys.AMOUNT, JsonKeys.LOCATION)</span>
+        // check if the keys are valid for the garbage
+<span class="pc bpc" id="L320" title="1 of 2 branches missed.">        if (garbage.keySet() != allowedKeys) {</span>
+<span class="nc" id="L321">            return Result.failure(</span>
+<span class="nc" id="L322">                ParserException(&quot;Invalid keys for garbage: ${garbage.keySet()}&quot;)</span>
+            )
+        }
+        // create a garbage type
+<span class="fc" id="L326">        val type = GarbageType.createGarbageType(garbage.getString(JsonKeys.TYPE))</span>
+<span class="fc" id="L327">        val location = garbage.getInt(JsonKeys.LOCATION)</span>
+        // check if the tile id exists in the map
+<span class="pc bpc" id="L329" title="1 of 2 branches missed.">        if (!simulationData.tiles.containsKey(location)) {</span>
+<span class="nc" id="L330">            return Result.failure(</span>
+<span class="nc" id="L331">                ParserException(&quot;Tile id ${garbage.getInt(JsonKeys.LOCATION)} does not exist for garbage&quot;)</span>
+            )
+        }
+        // validate garbage
+<span class="pc bpc" id="L335" title="1 of 2 branches missed.">        if (!validateGarbageType(garbage, type, location)) {</span>
+<span class="nc" id="L336">            return Result.failure(ParserException(&quot;Invalid garbage type for tile $location&quot;))</span>
+        }
+
+<span class="fc" id="L339">        val garb = Garbage(garbage.getInt(JsonKeys.ID), type, garbage.getInt(JsonKeys.AMOUNT))</span>
+<span class="fc" id="L340">        val tile = oceanMap.getTileByID(location)</span>
+<span class="pc bpc" id="L341" title="1 of 2 branches missed.">        val locationTile = tile.getOrElse { return Result.failure(ParserException(&quot;Garbage location does not exist.&quot;)) }</span>
+<span class="fc" id="L342">        garbageToTile[garb] = locationTile</span>
+<span class="fc" id="L343">        return Result.success(garb)</span>
+    }
+
+    private fun validateGarbageType(garbage: JSONObject, type: GarbageType, loc: Int): Boolean {
+<span class="fc" id="L347">        val tileType = simulationData.tiles.getValue(loc).type</span>
+<span class="fc" id="L348">        val amount = garbage.getInt(JsonKeys.AMOUNT)</span>
+<span class="pc bpc" id="L349" title="1 of 3 branches missed.">        return when (type) {</span>
+            GarbageType.PLASTIC -&gt; {
+<span class="pc bpc" id="L351" title="1 of 2 branches missed.">                tileType != TileType.LAND</span>
+            }
+
+            GarbageType.OIL -&gt; {
+<span class="pc bpc" id="L355" title="4 of 8 branches missed.">                !(tileType == TileType.LAND || amount !in Constants.MIN_OIL_AMOUNT..Constants.MAX_OIL_AMOUNT)</span>
+            }
+
+            GarbageType.CHEMICALS -&gt; {
+<span class="nc bnc" id="L359" title="All 4 branches missed.">                !(tileType == TileType.LAND || tileType == TileType.DEEP_OCEAN)</span>
+            }
+        }
+    }
+
+    /**
+     * Validates that the amount of oil per tile does not exceed the upper limit.
+     * Assumes that garbage has been parsed first and added to the tileToGarbage map of the oceanMap.
+     * @return Result.failure(ParserException) if a tile exceeds the maximum oil amount.
+     */
+    private fun validateOilAmount(): Result&lt;Unit&gt; {
+<span class="fc bfc" id="L370" title="All 2 branches covered.">        for ((tile, garbageOnTile) in oceanMap.tileToGarbage) {</span>
+<span class="fc bfc" id="L371" title="All 4 branches covered.">            val oilSumOnTile = garbageOnTile.filter { it.type == GarbageType.OIL }.sumOf { it.amount }</span>
+<span class="pc bpc" id="L372" title="1 of 2 branches missed.">            if (oilSumOnTile &gt; Constants.MAX_OIL_AMOUNT) {</span>
+<span class="nc" id="L373">                return Result.failure(ParserException(&quot;Tile with ID ${tile.id} has too much OIL.&quot;))</span>
+            }
+        }
+<span class="fc" id="L376">        return Result.success(Unit)</span>
+    }
+
+    /**
+     * The Events enum class that represents the different event types
+     * used to create the event objects
+     * @param keys the allowed keys for the event type
+     */
+<span class="fc" id="L384">    enum class Events(private val keys: Set&lt;String&gt;) {</span>
+<span class="fc" id="L385">        STORM(setOf(JsonKeys.LOCATION, JsonKeys.RADIUS, JsonKeys.SPEED, JsonKeys.DIRECTION)) {</span>
+            override fun createEventFromJson(json: JSONObject, simulationData: SimulationData): Result&lt;Event&gt; {
+                // check if the tile id exists in the map
+<span class="nc bnc" id="L388" title="All 2 branches missed.">                if (!simulationData.tiles.containsKey(json.getInt(JsonKeys.LOCATION))) {</span>
+<span class="nc" id="L389">                    return Result.failure(</span>
+<span class="nc" id="L390">                        ParserException(&quot;Tile id ${json.getInt(JsonKeys.LOCATION)} does not exist on map&quot;)</span>
+                    )
+                }
+<span class="nc bnc" id="L393" title="All 2 branches missed.">                if (!validateTileType(simulationData.tiles.getValue(json.getInt(JsonKeys.LOCATION)))) {</span>
+<span class="nc" id="L394">                    return Result.failure(ParserException(&quot;Invalid tile type for the event storm&quot;))</span>
+                }
+<span class="nc" id="L396">                val tile = simulationData.tiles.getValue(json.getInt(JsonKeys.LOCATION))</span>
+<span class="nc" id="L397">                return try {</span>
+<span class="nc" id="L398">                    Result.success(</span>
+<span class="nc" id="L399">                        StormEvent(</span>
+<span class="nc" id="L400">                            json.getInt(JsonKeys.RADIUS),</span>
+<span class="nc" id="L401">                            json.getInt(JsonKeys.SPEED),</span>
+<span class="nc" id="L402">                            json.getInt(JsonKeys.DIRECTION),</span>
+<span class="nc" id="L403">                            tile,</span>
+<span class="nc" id="L404">                            json.getInt(JsonKeys.ID),</span>
+<span class="nc" id="L405">                            json.getInt(JsonKeys.TICK),</span>
+                        )
+                    )
+<span class="nc" id="L408">                } catch (_: IllegalArgumentException) {</span>
+<span class="nc" id="L409">                    Result.failure(ParserException(&quot;Invalid direction of Storm.&quot;))</span>
+                }
+            }
+        },
+<span class="fc" id="L413">        RESTRICTION(setOf(JsonKeys.DURATION, JsonKeys.LOCATION, JsonKeys.RADIUS)) {</span>
+            override fun createEventFromJson(json: JSONObject, simulationData: SimulationData): Result&lt;Event&gt; {
+                // check if the tile id exists in the map
+<span class="nc bnc" id="L416" title="All 2 branches missed.">                if (!simulationData.tiles.containsKey(json.getInt(JsonKeys.LOCATION))) {</span>
+<span class="nc" id="L417">                    return Result.failure(</span>
+<span class="nc" id="L418">                        ParserException(&quot;Tile id ${json.getInt(JsonKeys.LOCATION)} does not exist&quot;)</span>
+                    )
+                }
+<span class="nc bnc" id="L421" title="All 2 branches missed.">                if (!validateTileType(simulationData.tiles.getValue(json.getInt(JsonKeys.LOCATION)))) {</span>
+<span class="nc" id="L422">                    return Result.failure(</span>
+<span class="nc" id="L423">                        ParserException(&quot;Invalid tile type for the event restriction&quot;)</span>
+                    )
+                }
+<span class="nc" id="L426">                val tile = simulationData.tiles.getValue(json.getInt(JsonKeys.LOCATION))</span>
+<span class="nc" id="L427">                return Result.success(</span>
+<span class="nc" id="L428">                    RestrictionEvent(</span>
+<span class="nc" id="L429">                        json.getInt(JsonKeys.RADIUS),</span>
+<span class="nc" id="L430">                        json.getInt(JsonKeys.DURATION),</span>
+<span class="nc" id="L431">                        tile,</span>
+<span class="nc" id="L432">                        json.getInt(JsonKeys.ID),</span>
+<span class="nc" id="L433">                        json.getInt(JsonKeys.TICK)</span>
+                    )
+                )
+            }
+        },
+<span class="fc" id="L438">        OIL_SPILL(setOf(JsonKeys.LOCATION, JsonKeys.AMOUNT, JsonKeys.RADIUS)) {</span>
+            override fun createEventFromJson(json: JSONObject, simulationData: SimulationData): Result&lt;Event&gt; {
+                // check if the tile id exists in the map
+<span class="nc bnc" id="L441" title="All 2 branches missed.">                if (!simulationData.tiles.containsKey(json.getInt(JsonKeys.LOCATION))) {</span>
+<span class="nc" id="L442">                    return Result.failure(</span>
+<span class="nc" id="L443">                        ParserException(&quot;Tile id ${json.getInt(JsonKeys.LOCATION)} does not exist on map&quot;)</span>
+                    )
+                }
+<span class="nc bnc" id="L446" title="All 2 branches missed.">                if (!validateTileType(simulationData.tiles.getValue(json.getInt(JsonKeys.LOCATION)))) {</span>
+<span class="nc" id="L447">                    return Result.failure(ParserException(&quot;Invalid tile type for the event oil spill&quot;))</span>
+                }
+<span class="nc" id="L449">                val tile = simulationData.tiles.getValue(json.getInt(JsonKeys.LOCATION))</span>
+<span class="nc" id="L450">                return Result.success(</span>
+<span class="nc" id="L451">                    OilEvent(</span>
+<span class="nc" id="L452">                        json.getInt(JsonKeys.RADIUS),</span>
+<span class="nc" id="L453">                        json.getInt(JsonKeys.AMOUNT),</span>
+<span class="nc" id="L454">                        tile,</span>
+<span class="nc" id="L455">                        json.getInt(JsonKeys.ID),</span>
+<span class="nc" id="L456">                        json.getInt(JsonKeys.TICK)</span>
+                    )
+                )
+            }
+        },
+<span class="fc" id="L461">        PIRATE_ATTACK(setOf(JsonKeys.SHIP_ID)) {</span>
+            override fun createEventFromJson(json: JSONObject, simulationData: SimulationData): Result&lt;Event&gt; {
+<span class="nc" id="L463">                val shipId = json.getInt(JsonKeys.SHIP_ID)</span>
+<span class="nc bnc" id="L464" title="All 2 branches missed.">                if (!simulationData.ships.containsKey(shipId)) {</span>
+<span class="nc" id="L465">                    return Result.failure(ParserException(&quot;Ship id $shipId does not exist&quot;))</span>
+                }
+<span class="nc" id="L467">                return Result.success(</span>
+<span class="nc" id="L468">                    PirateEvent(</span>
+<span class="nc" id="L469">                        json.getInt(JsonKeys.SHIP_ID),</span>
+<span class="nc" id="L470">                        json.getInt(JsonKeys.ID),</span>
+<span class="nc" id="L471">                        json.getInt(JsonKeys.TICK)</span>
+                    )
+                )
+            }
+        },
+<span class="fc" id="L476">        TYPHOON(setOf(JsonKeys.LOCATION, JsonKeys.RADIUS, JsonKeys.STRENGTH)) {</span>
+            override fun createEventFromJson(json: JSONObject, simulationData: SimulationData): Result&lt;Event&gt; {
+<span class="fc" id="L478">                try {</span>
+<span class="fc" id="L479">                    val location = json.getInt(JsonKeys.LOCATION)</span>
+<span class="pc bpc" id="L480" title="1 of 2 branches missed.">                    if (!simulationData.tiles.containsKey(location)) {</span>
+<span class="nc" id="L481">                        return Result.failure(</span>
+<span class="nc" id="L482">                            ParserException(&quot;Tile id $location does not exist on map&quot;)</span>
+                        )
+                    }
+<span class="fc" id="L485">                    val tile = simulationData.tiles.getValue(location)</span>
+<span class="fc" id="L486">                    val radius = json.getInt(JsonKeys.RADIUS)</span>
+<span class="fc" id="L487">                    val strength = json.getInt(JsonKeys.STRENGTH)</span>
+
+<span class="pc bpc" id="L489" title="2 of 4 branches missed.">                    require(radius &gt;= 0) { &quot;Event has radius $radius&quot; }</span>
+<span class="pc bpc" id="L490" title="3 of 6 branches missed.">                    require(strength &gt;= Constants.MIN_TYPHOON_STRENGTH &amp;&amp; strength &lt;= Constants.MAX_TYPHOON_STRENGTH) {</span>
+<span class="nc" id="L491">                        &quot;Event has strength $strength&quot;</span>
+                    }
+
+<span class="fc" id="L494">                    return Result.success(</span>
+<span class="fc" id="L495">                        TyphoonEvent(</span>
+<span class="fc" id="L496">                            json.getInt(JsonKeys.ID),</span>
+<span class="fc" id="L497">                            json.getInt(JsonKeys.TICK),</span>
+<span class="fc" id="L498">                            tile,</span>
+<span class="fc" id="L499">                            radius,</span>
+<span class="fc" id="L500">                            strength</span>
+                        )
+                    )
+<span class="nc" id="L503">                } catch (e: IllegalArgumentException) {</span>
+<span class="nc bnc" id="L504" title="All 2 branches missed.">                    return Result.failure(ParserException(e.message ?: &quot;Unknown Error while parsing Typhoon Event&quot;))</span>
+                }
+            }
+        }
+        ;
+
+        /**
+         * Returns the allowed keys for this event type
+         */
+        fun allowedKeysForEvents(): Set&lt;String&gt; {
+<span class="fc" id="L514">            return setOf(JsonKeys.ID, JsonKeys.TYPE, JsonKeys.TICK) + keys</span>
+        }
+
+        /**
+         * Validate the tile type for the event
+         */
+        fun validateTileType(tile: Tile): Boolean {
+<span class="nc bnc" id="L521" title="All 2 branches missed.">            return tile.type != TileType.LAND</span>
+        }
+
+        /**
+         * Create an event from a JSON object
+         * @param json the JSON object of the event
+         * @param simulationData the simulation data
+         * @return the event object
+         */
+        abstract fun createEventFromJson(json: JSONObject, simulationData: SimulationData): Result&lt;Event&gt;
+
+        /**
+         * Create an event from a JSON object
+         */
+        companion object {
+            /**
+             * Create an event from a JSON object
+             */
+            fun createEventFromJson(event: JSONObject, simulationData: SimulationData): Result&lt;Event&gt; {
+<span class="fc" id="L540">                val eventType = Events.valueOf(event.getString(JsonKeys.TYPE))</span>
+<span class="pc bpc" id="L541" title="1 of 2 branches missed.">                return if (eventType.allowedKeysForEvents() == event.keySet()) {</span>
+<span class="fc" id="L542">                    eventType.createEventFromJson(event, simulationData)</span>
+                } else {
+<span class="nc" id="L544">                    return Result.failure(ParserException(&quot;Invalid keys for event: ${event.keySet()}&quot;))</span>
+                }
+            }
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

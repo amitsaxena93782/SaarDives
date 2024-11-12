@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PathFinder.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.control</a> &gt; <span class="el_source">PathFinder.kt</span></div><h1>PathFinder.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.control
+
+import de.unisaarland.cs.se.selab.Constants
+import de.unisaarland.cs.se.selab.data.Garbage
+import de.unisaarland.cs.se.selab.data.OceanMap
+import de.unisaarland.cs.se.selab.data.Ship
+import de.unisaarland.cs.se.selab.data.Tile
+import de.unisaarland.cs.se.selab.enums.TileType
+
+/***
+ * The PathFinder class is used to compute the shortest paths
+ * to target tiles and objects on the map.
+ */
+<span class="fc" id="L14">class PathFinder(private val oceanMap: OceanMap) {</span>
+
+    /**
+     * A small helper class that is passed as an argument to sub-methods to avoid long parameter lists.
+     * It is also used to specify the scenario in which the PathFinder is used.
+     * Depending on the conditions and the tiles or objects you are looking for,
+     * you pass in different selector functions.
+     *
+     * @property distances A map that contains the distance (in tiles) for every tile we have reached so far.
+     * @property selector The selector function is used to define what the PathFinder is looking for and
+     * which tile should be selected if there are multiple goal tile candidates with the same distance.
+     * The selector function should return null if a tile should not be considered as a goal tile candidate
+     * (for example, a tile with no garbage, if we are looking for the closest garbage).
+     * If a tile should be considered a goal tile candidate, it should return an Int,
+     * which defines an order among the goal tile candidates (for example, if we are looking for the closest
+     * garbage and there are multiple closest tiles with garbage on them, we should choose the tile
+     * that has the garbage with the lowest id on it, so the selector should return the lowest garbage id
+     * for every tile).
+     * @property frontier A queue that contains all tiles that should be expanded next.
+     * @property parents A map that contains the parent tile for every tile we have reached so far
+     * (excluding the starting tile).
+     */
+<span class="fc" id="L36">    private data class Context(</span>
+<span class="fc" id="L37">        val distances: MutableMap&lt;Tile, Int&gt; = mutableMapOf(),</span>
+<span class="fc" id="L38">        val selector: (Tile) -&gt; Int?</span>
+    ) {
+<span class="fc" id="L40">        val frontier = ArrayDeque&lt;Tile&gt;()</span>
+<span class="fc" id="L41">        val parents = mutableMapOf&lt;Tile, Tile&gt;()</span>
+<span class="fc" id="L42">    }</span>
+
+    /**
+     * Checks if any tile in the goal tiles set is reachable from the starting tile.
+     *
+     * @param start The tile from which to start the path finding.
+     * @param goalTiles The set of tiles that should be considered as goal tile candidates.
+     */
+    fun isReachable(start: Tile, goalTiles: Set&lt;Tile&gt;): Boolean {
+<span class="fc bfc" id="L51" title="All 4 branches covered.">        val context = Context { tile -&gt; tile.takeIf { it in goalTiles }?.id }</span>
+<span class="fc" id="L52">        val goalTile = findNearestGoalTile(start, context)</span>
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">        return goalTile != null</span>
+    }
+
+    /**
+     * Checks if any tile in the goal tiles set is reachable from the starting tile
+     * within the given distance (in tiles).
+     *
+     * @param start The tile from which to start the path finding.
+     * @param goalTiles The set of tiles that should be considered as goal tile candidates.
+     * @param distance The maximum distance reachable tiles can have.
+     */
+    fun isReachableWithinDistance(start: Tile, goalTiles: Set&lt;Tile&gt;, distance: Int): Boolean {
+        // The selector function will return null if the tile is not in goal tiles
+        // and the tile id if it is.
+<span class="fc bfc" id="L67" title="All 4 branches covered.">        val context = Context { tile -&gt; tile.takeIf { it in goalTiles }?.id }</span>
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">        val goalTile = findNearestGoalTile(start, context) ?: return false</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">        return context.distances.getValue(goalTile) &lt;= distance</span>
+    }
+
+    /**
+     * Returns the shortest path to the closest tile in the goal tiles set or an empty list if no path exists.
+     * In case there are multiple closest goal tile candidates, the one with the lower tile id is chosen.
+     *
+     * @param start The tile from which to start the path finding.
+     * @param goalTiles The set of tiles that should be considered as goal tile candidates.
+     */
+    fun getShortestPathToTile(start: Tile, goalTiles: Set&lt;Tile&gt;): List&lt;Tile&gt; {
+        // The selector function will return null if the tile is not in goal tiles
+        // and the tile id if it is.
+<span class="fc bfc" id="L82" title="All 4 branches covered.">        val context = Context { tile -&gt; tile.takeIf { it in goalTiles }?.id }</span>
+<span class="fc" id="L83">        val goalTile = findNearestGoalTile(start, context)</span>
+<span class="fc" id="L84">        return reconstructPath(goalTile, context)</span>
+    }
+
+    /**
+     * Returns the shortest path to the closest Station tile in the goal tiles set or an empty list if no path exists.
+     * In case there are multiple closest goal tile candidates, the one with the lower tile id is chosen.
+     *
+     * @param start The tile from which to start the path finding.
+     * @param goalTiles The set of tiles that should be considered as goal tile candidates.
+     */
+    fun getShortestPathToTileStation(start: Tile, goalTiles: Set&lt;Tile&gt;): List&lt;Tile&gt; {
+        // The selector function will return null if the tile is not in goal tiles
+        // and the tile id if it is.
+
+<span class="fc bfc" id="L98" title="All 4 branches covered.">        val context = Context { tile -&gt; tile.takeIf { it in goalTiles }?.harborID }</span>
+<span class="fc" id="L99">        val goalTile = findNearestGoalTile(start, context)</span>
+<span class="fc" id="L100">        return reconstructPath(goalTile, context)</span>
+    }
+
+    /**
+     * Returns the shortest path to the closest Station tile in the goal tiles set or an empty list if no path exists.
+     * In case there are multiple closest goal tile candidates, the one with the lower tile id is chosen.
+     *
+     * @param start The tile from which to start the path finding.
+     * @param goalTiles The set of tiles that should be considered as goal tile candidates.
+     */
+    fun getShortestPathToTileShip(start: Tile, goalTiles: Set&lt;Tile&gt;, corpID: Int): List&lt;Tile&gt; {
+        // The selector function will return null if the tile is not in goal tiles
+        // and the tile id if it is.
+
+<span class="nc" id="L114">        val context = Context { tile -&gt;</span>
+<span class="nc" id="L115">            var n: Int? = null</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">            if (tile in goalTiles) {</span>
+<span class="nc" id="L117">                val shipsOnTileIDs = oceanMap.getShipsOnTile(tile).filter {</span>
+<span class="nc bnc" id="L118" title="All 4 branches missed.">                    it.fuel &lt; Constants.HALF * it.maxFuel &amp;&amp; it.corporation.id == corpID</span>
+<span class="nc" id="L119">                }.map { it.id }</span>
+<span class="nc" id="L120">                n = shipsOnTileIDs.min()</span>
+            }
+<span class="nc" id="L122">            n</span>
+        }
+<span class="nc" id="L124">        val goalTile = findNearestGoalTile(start, context)</span>
+<span class="nc" id="L125">        return reconstructPath(goalTile, context)</span>
+    }
+
+    /**
+     * Returns the shortest path to the closest tile containing garbage or an empty list if no path exists.
+     * In case there are multiple closest tiles containing garbage, the one containing the garbage
+     * with the lowest id is chosen.
+     *
+     * @param start The tile from which to start the path finding.
+     * @param tileToGarbage A map containing an entry for every tile which has garbage on it that should be considered
+     * as well as a sorted collection of the garbage that should be considered (for example, for a collecting ship,
+     * that can only collect chemicals, tileToGarbage should just contain an entry for every tile with chemicals on it
+     * as well as a sorted collection of all chemical garbage on that tile).
+     */
+    fun getShortestPathToGarbage(start: Tile, tileToGarbage: Map&lt;Tile, Collection&lt;Garbage&gt;&gt;): List&lt;Tile&gt; {
+        // The selector function will return null if the tile has no garbage
+        // and the lowest garbage id on the tile if it has.
+<span class="pc bpc" id="L142" title="1 of 4 branches missed.">        val context = Context { tile -&gt; tileToGarbage[tile]?.firstOrNull()?.id }</span>
+<span class="fc" id="L143">        val goalTile = findNearestGoalTile(start, context)</span>
+<span class="fc" id="L144">        return reconstructPath(goalTile, context)</span>
+    }
+
+    /**
+     * Returns the shortest path to the closest tile containing ships or an empty list if no path exists.
+     * In case there are multiple closest tiles containing ships, the one containing the ship
+     * with the lowest id is chosen.
+     *
+     * @param start The tile from which to start the path finding.
+     * @param tileToShips A map containing an entry for every tile which has ships on it that should be considered
+     * as well as a sorted collection of the ships that should be considered (for example, for a coordinating ship
+     * tileToShip should just contain an entry for every tile with ships that the coordinating ship
+     * can actually cooperate with as well as a sorted collection of all the ships on that tile that
+     * the coordinating ship can cooperate with).
+     */
+    fun getShortestPathToShip(start: Tile, tileToShips: Map&lt;Tile, Collection&lt;Ship&gt;&gt;): List&lt;Tile&gt; {
+        // The selector function will return null if the tile has no ships
+        // and the lowest ship id on the tile if it has.
+<span class="pc bpc" id="L162" title="1 of 4 branches missed.">        val context = Context { tile -&gt; tileToShips[tile]?.firstOrNull()?.id }</span>
+<span class="fc" id="L163">        val goalTile = findNearestGoalTile(start, context)</span>
+<span class="fc" id="L164">        return reconstructPath(goalTile, context)</span>
+    }
+
+    /**
+     * Returns the shortest path to the closest tile without a restriction or an empty list if no path exists.
+     *
+     * @param start The tile from which to start the path finding.
+     */
+    fun escapeRestriction(start: Tile): List&lt;Tile&gt; {
+        // The selector function will return null if the tile is restricted
+        // and the tile id if the tile is not restricted.
+<span class="nc bnc" id="L175" title="All 6 branches missed.">        val context = Context { tile -&gt; tile.takeIf { !it.restricted }?.id }</span>
+<span class="nc" id="L176">        val goalTile = findNearestGoalTile(start, context)</span>
+<span class="nc" id="L177">        return reconstructPath(goalTile, context)</span>
+    }
+
+    /**
+     * Returns the shortest path to the furthest reachable tile within maxDistance.
+     *
+     * @param start The tile from which to start the path finding.
+     * @param maxDistance The maximum distance reachable tiles can have.
+     */
+    fun explore(start: Tile, maxDistance: Int): List&lt;Tile&gt; {
+        // The selector function will return null if the distance to the tile is smaller
+        // than the given maxDistance and the tile id otherwise.
+<span class="fc" id="L189">        val distances = mutableMapOf&lt;Tile, Int&gt;()</span>
+<span class="fc bfc" id="L190" title="All 6 branches covered.">        val context = Context(distances) { tile -&gt; tile.takeIf { distances.getValue(it) == maxDistance }?.id }</span>
+        // If we did not reach any tile with maxDistance, we will get the reachable tile
+        // with the largest distance instead.
+<span class="pc bpc" id="L193" title="1 of 2 branches missed.">        val goalTile = findNearestGoalTile(start, context) ?: getMaxReachableTile(context)</span>
+<span class="fc" id="L194">        return reconstructPath(goalTile, context)</span>
+    }
+
+    /**
+     * From all tiles that were reached according to the context, return the one with maximum distance.
+     * In case there are multiple tiles with maximum distance, the one with the lowest tile id is chosen.
+     */
+    private fun getMaxReachableTile(context: Context): Tile? {
+<span class="nc" id="L202">        val comparator = compareBy&lt;Map.Entry&lt;Tile, Int&gt;&gt; { it.value }</span>
+<span class="nc" id="L203">            .thenByDescending { it.key.id }</span>
+<span class="nc bnc" id="L204" title="All 2 branches missed.">        return context.distances.maxWithOrNull(comparator)?.key</span>
+    }
+
+    /**
+     * Returns the nearest goal tile according to the selector in the given context
+     * or null if no path to any goal tile candidate exists.
+     */
+    private fun findNearestGoalTile(start: Tile, context: Context): Tile? {
+<span class="fc" id="L212">        context.distances[start] = 0</span>
+<span class="fc" id="L213">        context.frontier.add(start)</span>
+
+<span class="fc bfc" id="L215" title="All 4 branches covered.">        while (context.frontier.isNotEmpty()) {</span>
+<span class="fc" id="L216">            val tile = context.frontier.first()</span>
+            // As soon as we find the first goal tile candidate,
+            // all possible goal tile candidates with equal distance
+            // should already be inserted in the frontier,
+            // so we call the selectGoalTile method.
+<span class="fc bfc" id="L221" title="All 2 branches covered.">            if (context.selector(tile) != null) {</span>
+<span class="fc" id="L222">                return selectGoalTile(tile, context)</span>
+            }
+<span class="fc" id="L224">            context.frontier.removeFirst()</span>
+<span class="fc" id="L225">            expand(tile, context)</span>
+        }
+<span class="fc" id="L227">        return null</span>
+    }
+
+    /**
+     * Returns the goal tile (according to the selector) out of all closest goal tile candidates
+     * that where reached in the given context.
+     */
+    private fun selectGoalTile(goalCandidate: Tile, context: Context): Tile? {
+<span class="fc" id="L235">        val goalTile = context.frontier</span>
+<span class="fc" id="L236">            .takeWhile { context.distances[it] == context.distances[goalCandidate] }</span>
+<span class="pc bpc" id="L237" title="1 of 4 branches missed.">            .minByOrNull { context.selector(it) ?: Int.MAX_VALUE }</span>
+
+<span class="fc" id="L239">        return goalTile</span>
+    }
+
+    /**
+     * Adds all valid neighbours of the given tile to the frontier and determines their distance.
+     * The parent of the neighbour will be the expanded tile.
+     */
+    private fun expand(tile: Tile, context: Context) {
+        // The neighbours will be inserted in the frontier in order of tile id.
+        // Tiles will be taken out of the queue in insertion order.
+        // This ensures that the correct shortest path is constructed according to the Specification:
+        // &quot;Additionally, in case of multiple shortest paths, on every tile for each next
+        // possible tile on a shortest path the tile with the lowest ID is selected.&quot;
+<span class="fc" id="L252">        val sortedNeighbouringTiles = oceanMap</span>
+<span class="fc" id="L253">            .getNeighbouringTiles(tile)</span>
+<span class="fc" id="L254">            .sorted()</span>
+
+<span class="fc bfc" id="L256" title="All 2 branches covered.">        for (neighbour in sortedNeighbouringTiles) {</span>
+<span class="fc bfc" id="L257" title="All 2 branches covered.">            if (isValidNeighbour(tile, neighbour, context)) {</span>
+<span class="fc" id="L258">                context.parents[neighbour] = tile</span>
+<span class="fc" id="L259">                context.distances[neighbour] = context.distances.getValue(tile) + 1</span>
+<span class="fc" id="L260">                context.frontier.add(neighbour)</span>
+            }
+        }
+<span class="fc" id="L263">    }</span>
+
+    /**
+     * Checks if a given neighbour expanded from a given tile is valid and should be added to the frontier.
+     */
+    private fun isValidNeighbour(tile: Tile, neighbour: Tile, context: Context): Boolean {
+<span class="fc bfc" id="L269" title="All 2 branches covered.">        val notLand = neighbour.type != TileType.LAND</span>
+<span class="fc bfc" id="L270" title="All 2 branches covered.">        val notVisited = neighbour !in context.distances</span>
+        // To also cover the case where we want to escape a restriction
+        // we check that we never go from an unrestricted to a restricted tile
+        // instead of just checking that the neighbour tile is not restricted.
+<span class="pc bpc" id="L274" title="2 of 4 branches missed.">        val notFreeToRestricted = !(!tile.restricted &amp;&amp; neighbour.restricted)</span>
+<span class="pc bpc" id="L275" title="1 of 6 branches missed.">        return notLand &amp;&amp; notVisited &amp;&amp; notFreeToRestricted</span>
+    }
+
+    /**
+     * Returns the shortest path to the furthest reachable tile within maxDistance.
+     */
+    private fun reconstructPath(tile: Tile?, context: Context): List&lt;Tile&gt; {
+        // Goes backwards from the given tile, reconstructing the path by always going to the next parent
+        // until context.parents[it] returns null which should be the starting tile.
+<span class="fc" id="L284">        return generateSequence(tile) { context.parents[it] }.toList().asReversed()</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

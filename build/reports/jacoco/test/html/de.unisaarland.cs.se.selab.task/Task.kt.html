@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Task.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.task</a> &gt; <span class="el_source">Task.kt</span></div><h1>Task.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.task
+
+import de.unisaarland.cs.se.selab.data.OceanMap
+import de.unisaarland.cs.se.selab.data.Ship
+import de.unisaarland.cs.se.selab.data.TaskData
+import de.unisaarland.cs.se.selab.enums.TaskType
+
+/**
+ * abstract class for all Tasks
+ */
+<span class="fc" id="L11">abstract class Task(taskData: TaskData) {</span>
+<span class="fc" id="L12">    val id = taskData.id</span>
+<span class="fc" id="L13">    val tick = taskData.tick</span>
+<span class="fc" id="L14">    val shipId = taskData.shipId</span>
+<span class="fc" id="L15">    val reward = taskData.reward</span>
+<span class="pc" id="L16">    val rewardShipId = taskData.rewardShipId</span>
+<span class="fc" id="L17">    val destination = taskData.destination</span>
+<span class="fc" id="L18">    var finished: Boolean = false</span>
+<span class="pc" id="L19">    var toBeRemoved: Boolean = false</span>
+
+    /**
+     * This function will be called if the ship has reached its designated destination
+     */
+    abstract fun update(ship: Ship, oceanMap: OceanMap, movementPhase: Boolean)
+
+    protected fun checkLocation(ship: Ship, oceanMap: OceanMap): Boolean {
+<span class="fc" id="L27">        return oceanMap.getShipTile(ship) == destination</span>
+    }
+
+    /**
+     * returns the type of the task
+     */
+    abstract fun getType(): TaskType
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

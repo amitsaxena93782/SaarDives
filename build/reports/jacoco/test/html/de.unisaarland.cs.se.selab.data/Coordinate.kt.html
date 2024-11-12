@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Coordinate.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.data</a> &gt; <span class="el_source">Coordinate.kt</span></div><h1>Coordinate.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.data
+
+import de.unisaarland.cs.se.selab.enums.Direction
+
+/***
+ * The coordinate class
+ */
+<span class="pc" id="L8">data class Coordinate(val x: Int, val y: Int) {</span>
+    /**
+     * gets the direct neighbours based on current coordinate
+     */
+    fun getNeighbours(): List&lt;Coordinate&gt; {
+<span class="fc" id="L13">        return Direction.entries.map { getNeighbourCoordinate(it) }</span>
+    }
+
+    /**
+     * gets the neighbours within the radius of the current coordinate
+     */
+    fun getNeighbours(radius: Int): List&lt;Coordinate&gt; {
+<span class="fc" id="L20">        var neighbors: List&lt;Coordinate&gt; = listOf(this)</span>
+<span class="fc" id="L21">        var neighborsLastLevel: List&lt;Coordinate&gt; = emptyList()</span>
+<span class="fc" id="L22">        var neighborsThisLevel: List&lt;Coordinate&gt; = emptyList()</span>
+<span class="fc bfc" id="L23" title="All 4 branches covered.">        for (i in 1..radius) {</span>
+<span class="fc bfc" id="L24" title="All 2 branches covered.">            if (i == 1) {</span>
+<span class="fc" id="L25">                neighbors = neighbors + getNeighbours()</span>
+<span class="fc" id="L26">                neighborsLastLevel = neighbors</span>
+            } else {
+<span class="fc bfc" id="L28" title="All 2 branches covered.">                for (coordinate in neighborsLastLevel) {</span>
+<span class="fc" id="L29">                    neighborsThisLevel =</span>
+<span class="fc" id="L30">                        (neighborsThisLevel + coordinate.getNeighbours()).distinct()</span>
+                }
+<span class="fc" id="L32">                neighborsLastLevel = neighborsThisLevel</span>
+<span class="fc" id="L33">                neighbors = (neighbors + neighborsThisLevel).distinct()</span>
+            }
+        }
+<span class="fc" id="L36">        return neighbors</span>
+    }
+
+    /**
+     * Get the neighbouring coordinate in the given direction.
+     */
+    fun getNeighbourCoordinate(direction: Direction): Coordinate {
+<span class="fc bfc" id="L43" title="All 2 branches covered.">        return if (y % 2 == 0) {</span>
+<span class="fc bfc" id="L44" title="All 6 branches covered.">            when (direction) {</span>
+<span class="fc" id="L45">                Direction.RIGHT -&gt; Coordinate(x + 1, y)</span>
+<span class="fc" id="L46">                Direction.DOWN_RIGHT -&gt; Coordinate(x + 1, y + 1)</span>
+<span class="fc" id="L47">                Direction.DOWN_LEFT -&gt; Coordinate(x, y + 1)</span>
+<span class="fc" id="L48">                Direction.LEFT -&gt; Coordinate(x - 1, y)</span>
+<span class="fc" id="L49">                Direction.UP_LEFT -&gt; Coordinate(x, y - 1)</span>
+<span class="fc" id="L50">                Direction.UP_RIGHT -&gt; Coordinate(x + 1, y - 1)</span>
+            }
+        } else {
+<span class="fc bfc" id="L53" title="All 6 branches covered.">            when (direction) {</span>
+<span class="fc" id="L54">                Direction.RIGHT -&gt; Coordinate(x + 1, y)</span>
+<span class="fc" id="L55">                Direction.DOWN_RIGHT -&gt; Coordinate(x, y + 1)</span>
+<span class="fc" id="L56">                Direction.DOWN_LEFT -&gt; Coordinate(x - 1, y + 1)</span>
+<span class="fc" id="L57">                Direction.LEFT -&gt; Coordinate(x - 1, y)</span>
+<span class="fc" id="L58">                Direction.UP_LEFT -&gt; Coordinate(x - 1, y - 1)</span>
+<span class="fc" id="L59">                Direction.UP_RIGHT -&gt; Coordinate(x, y - 1)</span>
+            }
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

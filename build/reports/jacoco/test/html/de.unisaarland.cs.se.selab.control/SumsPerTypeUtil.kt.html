@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SumsPerTypeUtil.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.control</a> &gt; <span class="el_source">SumsPerTypeUtil.kt</span></div><h1>SumsPerTypeUtil.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.control
+
+import de.unisaarland.cs.se.selab.data.Garbage
+import de.unisaarland.cs.se.selab.data.Ship
+import de.unisaarland.cs.se.selab.enums.GarbageType
+
+/**
+ * Utility object for calculating sums of garbage amounts and ship garbage capacities per type.
+ */
+object SumsPerTypeUtil {
+
+    /**
+     * Sums up the garbage amounts per type for a given collection of garbage.
+     */
+    fun getGarbageSumsPerType(garbageOnTile: Collection&lt;Garbage&gt;): Map&lt;GarbageType, Int&gt; {
+<span class="fc" id="L16">        val garbageSumsPerType = mutableMapOf&lt;GarbageType, Int&gt;()</span>
+<span class="fc bfc" id="L17" title="All 2 branches covered.">        for (garbage in garbageOnTile) {</span>
+<span class="pc bpc" id="L18" title="1 of 2 branches missed.">            val garbageSum = garbageSumsPerType[garbage.type] ?: 0</span>
+<span class="fc" id="L19">            garbageSumsPerType[garbage.type] = garbageSum + garbage.amount</span>
+        }
+<span class="fc" id="L21">        return garbageSumsPerType</span>
+    }
+
+    /**
+     * Sums up the garbage capacity amounts per type for a given collection of ships.
+     */
+    fun getCapacitySumsPerType(ships: Collection&lt;Ship&gt;): Map&lt;GarbageType, Int&gt; {
+<span class="fc" id="L28">        val capacitySumsPerType = mutableMapOf&lt;GarbageType, Int&gt;()</span>
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        for (ship in ships) {</span>
+<span class="fc bfc" id="L30" title="All 2 branches covered.">            for ((garbageType, capacity) in ship.garbageCapacity) {</span>
+<span class="pc bpc" id="L31" title="1 of 2 branches missed.">                val capacitySum = capacitySumsPerType[garbageType] ?: 0</span>
+<span class="fc" id="L32">                capacitySumsPerType[garbageType] = capacitySum + capacity</span>
+            }
+        }
+<span class="fc" id="L35">        return capacitySumsPerType</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

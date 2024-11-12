@@ -1,0 +1,532 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CorporationParser.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.parser</a> &gt; <span class="el_source">CorporationParser.kt</span></div><h1>CorporationParser.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.parser
+
+import com.github.erosb.jsonsKema.FormatValidationPolicy
+import com.github.erosb.jsonsKema.JsonParser
+import com.github.erosb.jsonsKema.JsonValue
+import com.github.erosb.jsonsKema.SchemaLoader
+import com.github.erosb.jsonsKema.ValidationFailure
+import com.github.erosb.jsonsKema.Validator
+import com.github.erosb.jsonsKema.ValidatorConfig
+import de.unisaarland.cs.se.selab.Constants
+import de.unisaarland.cs.se.selab.control.PathFinder
+import de.unisaarland.cs.se.selab.data.Corporation
+import de.unisaarland.cs.se.selab.data.Harbor
+import de.unisaarland.cs.se.selab.data.Ship
+import de.unisaarland.cs.se.selab.data.Tile
+import de.unisaarland.cs.se.selab.enums.GarbageType
+import de.unisaarland.cs.se.selab.enums.ShipType
+import org.json.JSONArray
+import org.json.JSONException
+import org.json.JSONObject
+
+/**
+ * Parser for the corporation config file.
+ */
+<span class="fc" id="L25">class CorporationParser(private val jsonString: String, private var simulationData: SimulationData) {</span>
+<span class="pc bpc" id="L26" title="1 of 2 branches missed.">    private val oceanMap = simulationData.oceanMap</span>
+<span class="nc" id="L27">        ?: throw ParserException(&quot;Ocean Map didn't exist when parsing corporations.&quot;) // map parser created it already</span>
+<span class="fc" id="L28">    private val ships = mutableMapOf&lt;Int, Ship&gt;() // map from shipID to ships</span>
+<span class="fc" id="L29">    private val shipLocations = mutableMapOf&lt;Int, Int&gt;() // map from shipID to tileID</span>
+<span class="fc" id="L30">    private val corporationsById = mutableMapOf&lt;Int, Corporation&gt;() // map form corpID to CurrentInfo</span>
+<span class="fc" id="L31">    private val garbageTypes = mutableMapOf&lt;Int, MutableSet&lt;GarbageType&gt;&gt;() // map from corp to garbage types</span>
+<span class="fc" id="L32">    private val corpToClaimedShips = mutableMapOf&lt;Int, MutableSet&lt;Int&gt;&gt;() // map from corpIDs to shipIDs that they claim</span>
+<span class="fc" id="L33">    private val shipNames = mutableSetOf&lt;String&gt;() // set of ship names, used for validation of uniqueness</span>
+<span class="fc" id="L34">    private val corpNames = mutableSetOf&lt;String&gt;() // set of corp names, used for validation of uniqueness</span>
+<span class="fc" id="L35">    private val claimedHarbors = mutableSetOf&lt;Tile&gt;() // set of claimed harbors, used for validation</span>
+<span class="fc" id="L36">    private val pathFinder = PathFinder(oceanMap)</span>
+
+    /**
+     * Parses the config
+     * @return if config is valid or not
+     */
+    internal fun parse(): Result&lt;Unit&gt; {
+<span class="fc" id="L43">        val schema = SchemaLoader.forURL(&quot;classpath://schema/corporations.schema&quot;).load()</span>
+
+        // validate schema
+<span class="fc" id="L46">        val validator = Validator.create(schema, ValidatorConfig(FormatValidationPolicy.ALWAYS))</span>
+
+<span class="fc" id="L48">        try {</span>
+<span class="fc" id="L49">            val jsonInstance: JsonValue = JsonParser(jsonString).parse()</span>
+<span class="fc" id="L50">            val failure: ValidationFailure? = validator.validate(jsonInstance)</span>
+<span class="pc bpc" id="L51" title="2 of 4 branches missed.">            require(failure == null) { &quot;Corp JSON doesn't match the schema&quot; }</span>
+            /*if (failure != null) {
+                return Result.failure(ParserException(failure.message))
+            }*/
+<span class="fc" id="L55">            val json = JSONObject(jsonString)</span>
+
+            // parse corps
+<span class="fc" id="L58">            val corporationsJson = json.getJSONArray(JsonKeys.CORPORATIONS)</span>
+<span class="fc" id="L59">            val corporationsParsingRes = parseCorporations(corporationsJson)</span>
+<span class="pc bpc" id="L60" title="1 of 2 branches missed.">            corporationsParsingRes.onFailure { return corporationsParsingRes }</span>
+
+            // add corporations to simulationData
+<span class="fc" id="L63">            simulationData.corporations.putAll(corporationsById)</span>
+
+            // Cross Validation in Corporations and Harbors
+<span class="fc" id="L66">            simulationData.harbors.values.forEach { harbor -&gt;</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">                require(validateHarborUsage(harbor).isSuccess)</span>
+<span class="fc" id="L68">            }</span>
+
+            // parse ships
+<span class="fc" id="L71">            val shipsJson = json.getJSONArray(JsonKeys.SHIPS)</span>
+<span class="fc" id="L72">            val shipParsingRes = parseShips(shipsJson)</span>
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">            shipParsingRes.onFailure { return shipParsingRes }</span>
+
+            // add ships to oceanMap
+<span class="fc bfc" id="L76" title="All 2 branches covered.">            for ((shipID, ship) in ships) {</span>
+<span class="fc" id="L77">                val shipLoc = shipLocations.getValue(shipID)</span>
+<span class="pc bpc" id="L78" title="1 of 2 branches missed.">                val tile = oceanMap.getTileByID(shipLoc).getOrNull()</span>
+                // ship locations are already validated and exist
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">                requireNotNull(tile) { &quot;Ship's Tile isn't found in CorpParser&quot; }</span>
+<span class="fc" id="L81">                oceanMap.addShip(ship, tile)</span>
+            }
+<span class="fc" id="L83">            simulationData.ships.putAll(ships)</span>
+<span class="fc" id="L84">            Constants.MAX_SHIP_ID = ships.keys.max()</span>
+
+            // sort ships
+<span class="fc" id="L87">            sortShips()</span>
+
+            // check if corp has necessary ships for its garbage types
+<span class="fc bfc" id="L90" title="All 2 branches covered.">            for (corp in corporationsById.keys) {</span>
+<span class="fc" id="L91">                val garbageTypeValidationRes = hasShipForGarbageTypes(corp)</span>
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">                garbageTypeValidationRes.onFailure { return garbageTypeValidationRes }</span>
+            }
+
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">            require(areNamesUnique()) { &quot;Names are not unique.&quot; }</span>
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">            require(allHarborsClaimed()) { &quot;Not all harbors were claimed.&quot; }</span>
+
+<span class="fc" id="L98">            return Result.success(Unit)</span>
+<span class="nc" id="L99">        } catch (e: IllegalArgumentException) {</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">            return Result.failure(ParserException(e.message ?: &quot;Some unknown error occurred in main CorpParser.&quot;))</span>
+        }
+    }
+
+    private fun validateHarborUsage(harbor: Harbor): Result&lt;Unit&gt; {
+<span class="fc" id="L105">        val corpIDs = harbor.corporations</span>
+<span class="fc bfc" id="L106" title="All 2 branches covered.">        for (corpID in corpIDs) {</span>
+<span class="fc" id="L107">            val corpHarbors = simulationData.corpHarbors.get(corpID)</span>
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">            if (corpHarbors == null) {</span>
+<span class="nc" id="L109">                return Result.failure(ParserException(&quot;Corporation $corpID has no harbors.&quot;))</span>
+            }
+<span class="fc bfc" id="L111" title="All 2 branches covered.">            for (corpHarbor in corpHarbors) {</span>
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">                if (!corpHarbor.corporations.contains(corpID)) {</span>
+<span class="nc" id="L113">                    return Result.failure(ParserException(&quot;Cross Validation Problem&quot;))</span>
+                }
+            }
+        }
+<span class="fc" id="L117">        return Result.success(Unit)</span>
+    }
+
+    /**
+     * Parses the array of corporations.
+     * @return result of basic validations
+     */
+    private fun parseCorporations(corpArray: JSONArray): Result&lt;Unit&gt; {
+<span class="fc bfc" id="L125" title="All 2 branches covered.">        for (corp in corpArray) {</span>
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">            if (corp is JSONObject) {</span>
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">                parseCorporation(corp).onFailure { return Result.failure(it) }</span>
+            } else {
+<span class="nc" id="L129">                return Result.failure(ParserException(&quot;One of the corporations was not a JSONObject.&quot;))</span>
+            }
+        }
+
+<span class="fc" id="L133">        return Result.success(Unit)</span>
+    }
+
+    /**
+     * Parses the given corp JSONObject.
+     * @return result of basic validations
+     */
+    private fun parseCorporation(corp: JSONObject): Result&lt;Unit&gt; {
+<span class="fc" id="L141">        try {</span>
+<span class="fc" id="L142">            val id = corp.getInt(JsonKeys.ID)</span>
+<span class="fc" id="L143">            garbageTypes[id] = mutableSetOf()</span>
+<span class="pc bpc" id="L144" title="2 of 4 branches missed.">            require(!corporationsById.contains(id)) { &quot;More than one corporation specified ID $id.&quot; }</span>
+
+<span class="fc" id="L146">            corpNames.add(corp.getString(JsonKeys.NAME))</span>
+
+<span class="fc" id="L148">            val credits = corp.getInt(JsonKeys.CREDITS)</span>
+<span class="pc bpc" id="L149" title="2 of 4 branches missed.">            require(credits &gt;= 0) { &quot;Credits must be positive.&quot; }</span>
+
+            // parse and validate the ship array of the corp
+<span class="fc" id="L152">            val shipsJson = corp.getJSONArray(JsonKeys.SHIPS)</span>
+<span class="fc" id="L153">            val parseCorpShipsRes = parseCorpShips(id, shipsJson)</span>
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">            parseCorpShipsRes.onFailure { return parseCorpShipsRes }</span>
+
+            // parse and validate the harbor array of the corp
+<span class="fc" id="L157">            val harborsJson = corp.getJSONArray(JsonKeys.HOME_HARBORS)</span>
+<span class="fc" id="L158">            val parseCorpHarborsRes = parseCorpHarbors(harborsJson, id)</span>
+<span class="pc bpc" id="L159" title="1 of 2 branches missed.">            val harbors = parseCorpHarborsRes.getOrElse { return Result.failure(it) }</span>
+
+<span class="fc" id="L161">            val garbageJson = corp.getJSONArray(JsonKeys.GARBAGE_TYPES)</span>
+<span class="fc" id="L162">            val parseCorpGarbageTypesRes = parseCorpGarbageTypes(id, garbageJson)</span>
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">            parseCorpGarbageTypesRes.onFailure { return parseCorpGarbageTypesRes }</span>
+<span class="fc" id="L164">            val corporation = Corporation(id, harbors, garbageTypes.getValue(id).toList(), credits)</span>
+<span class="fc" id="L165">            corporationsById[id] = corporation</span>
+
+<span class="fc" id="L167">            return Result.success(Unit)</span>
+<span class="nc" id="L168">        } catch (e: JSONException) {</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">            return Result.failure(ParserException(e.message ?: &quot;Unknown Error!&quot;))</span>
+        }
+    }
+
+    /**
+     * Parses the garbage types of a corporation.
+     * @param id corporation ID
+     * @return Failure in case the garbage type wasn't a string or not valid.
+     */
+    private fun parseCorpGarbageTypes(id: Int, garbageJson: JSONArray): Result&lt;Unit&gt; {
+<span class="fc bfc" id="L179" title="All 2 branches covered.">        for (garbage in garbageJson) {</span>
+<span class="fc" id="L180">            garbage.toString()</span>
+<span class="fc" id="L181">            try {</span>
+<span class="fc" id="L182">                val garbageType =</span>
+<span class="fc" id="L183">                    GarbageType.valueOf(</span>
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">                        (garbage ?: return Result.failure(ParserException(&quot;JSON GarbageType was null.&quot;))) as String</span>
+                    )
+<span class="fc" id="L186">                garbageTypes.getValue(id).add(garbageType)</span>
+<span class="nc" id="L187">            } catch (_: ClassCastException) {</span>
+<span class="nc" id="L188">                return Result.failure(ParserException(&quot;Corporation garbage type was null.&quot;))</span>
+<span class="nc" id="L189">            } catch (_: IllegalArgumentException) {</span>
+<span class="nc" id="L190">                return Result.failure(ParserException(&quot;Could not create GarbageType of string $garbage.&quot;))</span>
+            }
+        }
+
+<span class="fc" id="L194">        return Result.success(Unit)</span>
+    }
+
+    /**
+     * Helper method to parse and validate the array of harbors a corporation has.
+     * @param harborsJsonArray as JSONArray
+     * @param corpID as Int
+     * @return result of basic validation
+     */
+    private fun parseCorpHarbors(harborsJsonArray: JSONArray, corpID: Int): Result&lt;Set&lt;Tile&gt;&gt; {
+<span class="fc" id="L204">        val res = mutableSetOf&lt;Tile&gt;()</span>
+<span class="fc" id="L205">        val harbors = mutableListOf&lt;Harbor&gt;()</span>
+<span class="fc bfc" id="L206" title="All 2 branches covered.">        for (harborJSON in harborsJsonArray) {</span>
+<span class="fc" id="L207">            try {</span>
+<span class="pc bpc" id="L208" title="1 of 2 branches missed.">                val harborID = (harborJSON ?: return Result.failure(ParserException(&quot;JSON Harbor ID was null.&quot;))) as Int</span>
+<span class="fc" id="L209">                val harbor = simulationData.harbors[harborID]</span>
+
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">                requireNotNull(harbor) {</span>
+<span class="nc" id="L212">                    &quot;Parsed Harbor is null at Corporation $corpID&quot;</span>
+                }
+
+                // Checks if the harbor really belongs to this corporation
+<span class="pc bpc" id="L216" title="1 of 2 branches missed.">                require(harbor.corporations.contains(corpID))</span>
+
+                // get tile of claimed harbor
+<span class="fc" id="L219">                val harborTile =</span>
+<span class="fc" id="L220">                    harbor.let {</span>
+<span class="fc" id="L221">                        oceanMap.getTileByID(it.location)</span>
+<span class="pc bpc" id="L222" title="1 of 2 branches missed.">                            .getOrElse {</span>
+<span class="pc" id="L223">                                return Result.failure(ParserException(&quot;Claimed harbor $harborID is not a tile.&quot;))</span>
+                            }
+                    }
+
+                // checking that tile is actually a harbor
+<span class="pc bpc" id="L228" title="1 of 2 branches missed.">                if (!simulationData.harborTiles.contains(harborTile)) {</span>
+<span class="nc" id="L229">                    return Result.failure(ParserException(&quot;Claimed harbor $harborID is not a harbor.&quot;))</span>
+                }
+<span class="fc" id="L231">                claimedHarbors.add(harborTile)</span>
+<span class="fc" id="L232">                harbors.add(harbor)</span>
+
+                // adding harbor to currentInfo of corp
+<span class="fc" id="L235">                res.add(harborTile)</span>
+<span class="nc" id="L236">            } catch (_: ClassCastException) {</span>
+<span class="pc" id="L237">                return Result.failure(ParserException(&quot;Some harbor ID was not an Int.&quot;))</span>
+            }
+        }
+<span class="fc" id="L240">        simulationData.corpHarbors[corpID] = harbors</span>
+
+<span class="fc" id="L242">        return Result.success(res)</span>
+    }
+
+    /**
+     * Helper method to parse and validate the array of ships a corporation has.
+     * @param id corporation ID
+     * @return failure in case the array did not contain integers
+     */
+    private fun parseCorpShips(id: Int, shipsJson: JSONArray): Result&lt;Unit&gt; {
+        // validate all claimed ship IDs
+        // will not store this information anywhere
+<span class="fc" id="L253">        try {</span>
+<span class="fc bfc" id="L254" title="All 2 branches covered.">            for (ship in shipsJson) {</span>
+<span class="pc bpc" id="L255" title="1 of 2 branches missed.">                val shipID = (ship ?: return Result.failure(ParserException(&quot;JSON Ship id was null.&quot;))) as Int</span>
+<span class="fc" id="L256">                corpToClaimedShips.getOrPut(id) { mutableSetOf() }.add(shipID)</span>
+            }
+<span class="nc" id="L258">        } catch (_: ClassCastException) {</span>
+<span class="nc" id="L259">            return Result.failure(ParserException(&quot;Ship id was not an Int.&quot;))</span>
+        }
+
+<span class="fc" id="L262">        return Result.success(Unit)</span>
+    }
+
+    /**
+     * Parses the array of ships.
+     */
+    private fun parseShips(shipArray: JSONArray): Result&lt;Unit&gt; {
+<span class="fc bfc" id="L269" title="All 2 branches covered.">        for (ship in shipArray) {</span>
+<span class="pc bpc" id="L270" title="1 of 2 branches missed.">            if (ship is JSONObject) {</span>
+<span class="fc" id="L271">                val shipParsingRes = parseShip(ship)</span>
+<span class="fc" id="L272">                val shipObject = shipParsingRes</span>
+<span class="pc bpc" id="L273" title="1 of 2 branches missed.">                    .getOrElse { return Result.failure(it) }</span>
+                // add ships to mappings
+<span class="fc" id="L275">                ships[shipObject.id] = shipObject</span>
+<span class="pc bpc" id="L276" title="2 of 4 branches missed.">                corporationsById[shipObject.corporation.id]?.ships?.add(shipObject)</span>
+<span class="pc" id="L277">                    ?: return Result.failure(</span>
+<span class="nc" id="L278">                        ParserException(&quot;Ship ${shipObject.id} wants to belong to non existing corporation $.&quot;)</span>
+                    )
+            } else {
+<span class="nc" id="L281">                return Result.failure(ParserException(&quot;One of the ships was not a JSONObject.&quot;))</span>
+            }
+        }
+
+        // check if each corporation got all their ships
+<span class="pc bpc" id="L286" title="1 of 2 branches missed.">        if (!didCorpsGetAllClaimedShips()) {</span>
+<span class="nc" id="L287">            return Result.failure(ParserException(&quot;Corps did not get all their ships.&quot;))</span>
+        }
+
+<span class="fc" id="L290">        return Result.success(Unit)</span>
+    }
+
+    /**
+     * Parses one ship.
+     * On success adds the ship to the location mapping and ship list
+     */
+    private fun parseShip(ship: JSONObject): Result&lt;Ship&gt; {
+        // necessary fields
+<span class="fc" id="L299">        val id = ship.getInt(JsonKeys.ID)</span>
+<span class="pc bpc" id="L300" title="1 of 2 branches missed.">        if (ships.contains(id)) {</span>
+<span class="nc" id="L301">            return Result.failure(ParserException(&quot;Ship $id is already defined.&quot;))</span>
+        }
+
+<span class="fc" id="L304">        shipNames.add(ship.getString(JsonKeys.NAME))</span>
+<span class="fc" id="L305">        val type = ShipType.valueOf(ship.getString(JsonKeys.TYPE))</span>
+<span class="pc bpc" id="L306" title="1 of 2 branches missed.">        if (!validateNoExcessFields(ship, type)) {</span>
+<span class="nc" id="L307">            return Result.failure(ParserException(&quot;Ship $id has too many fields for type $type.&quot;))</span>
+        }
+<span class="fc" id="L309">        val corporation = ship.getInt(JsonKeys.CORPORATION)</span>
+<span class="fc" id="L310">        val location = ship.getInt(JsonKeys.LOCATION)</span>
+<span class="fc" id="L311">        val maxVelocity = ship.getInt(JsonKeys.MAX_VELOCITY)</span>
+<span class="fc" id="L312">        val accel = ship.getInt(JsonKeys.ACCELERATION)</span>
+<span class="fc" id="L313">        val fuelCap = ship.getInt(JsonKeys.FUEL_CAPACITY)</span>
+<span class="fc" id="L314">        val fuelConsumption = ship.getInt(JsonKeys.FUEL_CONSUMPTION)</span>
+
+        // optional fields
+<span class="fc" id="L317">        val visibilityRange: Int</span>
+<span class="fc" id="L318">        val capacity = mutableMapOf&lt;GarbageType, Int&gt;()</span>
+
+<span class="pc bpc" id="L320" title="1 of 4 branches missed.">        when (type) {</span>
+            ShipType.SCOUTING -&gt; {
+<span class="fc" id="L322">                visibilityRange = ship.getInt(JsonKeys.VISIBILITY_RANGE)</span>
+            }
+
+            ShipType.COORDINATING -&gt; {
+<span class="fc" id="L326">                visibilityRange = ship.getInt(JsonKeys.VISIBILITY_RANGE)</span>
+            }
+
+            ShipType.COLLECTING -&gt; {
+<span class="fc" id="L330">                visibilityRange = 0</span>
+<span class="fc" id="L331">                val garbageType = GarbageType.valueOf(ship.getString(JsonKeys.GARBAGE_TYPE))</span>
+<span class="fc" id="L332">                val cap = ship.getInt(JsonKeys.CAPACITY)</span>
+<span class="fc" id="L333">                capacity[garbageType] = cap</span>
+            }
+
+            ShipType.REFUELING -&gt; {
+<span class="nc" id="L337">                return Result.failure(ParserException(&quot;Refueling Ship can't be initialised itself&quot;))</span>
+            }
+        }
+
+<span class="pc bpc" id="L341" title="1 of 2 branches missed.">        val shipsCorporation = corporationsById[corporation] ?: return Result.failure(</span>
+<span class="nc" id="L342">            ParserException(&quot;Ship $id claims to belong to corporation $corporation which does not exist.&quot;)</span>
+        )
+<span class="fc" id="L344">        val parsedShip = Ship(</span>
+<span class="fc" id="L345">            id,</span>
+<span class="fc" id="L346">            type,</span>
+<span class="fc" id="L347">            shipsCorporation,</span>
+<span class="fc" id="L348">            maxVelocity,</span>
+<span class="fc" id="L349">            accel,</span>
+<span class="fc" id="L350">            fuelCap,</span>
+<span class="fc" id="L351">            fuelConsumption,</span>
+<span class="fc" id="L352">            visibilityRange,</span>
+<span class="fc" id="L353">            capacity</span>
+        )
+
+<span class="fc" id="L356">        ships[parsedShip.id] = parsedShip</span>
+<span class="fc" id="L357">        shipLocations[parsedShip.id] = location</span>
+
+<span class="fc" id="L359">        return validateShip(parsedShip, corporation, location)</span>
+    }
+
+    /**
+     * Validates ship parameters, location and garbage type.
+     */
+    private fun validateShip(
+        ship: Ship,
+        corporation: Int,
+        location: Int,
+    ): Result&lt;Ship&gt; {
+        // check properties
+<span class="pc bpc" id="L371" title="1 of 2 branches missed.">        checkShipProperties(ship).onFailure { return Result.failure(it) }</span>
+
+        // check garbage capacity
+<span class="fc bfc" id="L374" title="All 2 branches covered.">        if (ship.type == ShipType.COLLECTING) {</span>
+<span class="fc bfc" id="L375" title="All 2 branches covered.">            for ((gT, amount) in ship.maxGarbageCapacity) {</span>
+<span class="pc bpc" id="L376" title="2 of 4 branches missed.">                if (amount &gt; gT.maxCap || amount &lt; gT.minCap) {</span>
+<span class="nc" id="L377">                    return Result.failure(ParserException(&quot;Garbage capacity $amount invalid for type $gT.&quot;))</span>
+                }
+<span class="pc bpc" id="L379" title="1 of 2 branches missed.">                if (!doesCollect(corporation, gT)) {</span>
+<span class="nc" id="L380">                    return Result.failure(</span>
+<span class="nc" id="L381">                        ParserException(</span>
+<span class="nc" id="L382">                            &quot;Corporation $corporation does not collect garbage type $gT of ship ${ship.id}.&quot;</span>
+                        )
+                    )
+                }
+            }
+        }
+
+        // check if ship can reach a harbor
+<span class="pc bpc" id="L390" title="1 of 2 branches missed.">        if (!validateShipLocation(location, corporation)) {</span>
+<span class="nc" id="L391">            return Result.failure(ParserException(&quot;Ship ${ship.id} cannot reach a harbor.&quot;))</span>
+        }
+
+        // check if ship is actually being claimed by the corporation that it specifies
+<span class="pc bpc" id="L395" title="1 of 2 branches missed.">        return if (!doesCorpClaimShip(corporation, ship)) {</span>
+<span class="nc" id="L396">            Result.failure(ParserException(&quot;Ship ${ship.id} is not being claimed by it's corp $corporation.&quot;))</span>
+        } else {
+<span class="fc" id="L398">            Result.success(ship)</span>
+        }
+    }
+
+    /**
+     * Checks that the ship properties are within their bounds.
+     */
+    private fun checkShipProperties(ship: Ship): Result&lt;Unit&gt; {
+<span class="fc" id="L406">        val sT = ship.type</span>
+
+<span class="pc bpc" id="L408" title="2 of 4 branches missed.">        return if (ship.maxVelocity &gt; sT.maxVelMax || ship.maxVelocity &lt; sT.maxVelMin) {</span>
+            // violation to maxVel
+<span class="nc" id="L410">            Result.failure(ParserException(&quot;Velocity ${ship.maxVelocity} invalid for type $sT.&quot;))</span>
+<span class="pc bpc" id="L411" title="2 of 4 branches missed.">        } else if (ship.acceleration &gt; sT.accelMax || ship.acceleration &lt; sT.accelMin) {</span>
+            // violation to acceleration
+<span class="nc" id="L413">            Result.failure(ParserException(&quot;Acceleration ${ship.acceleration} invalid for type $sT.&quot;))</span>
+<span class="pc bpc" id="L414" title="2 of 4 branches missed.">        } else if (ship.maxFuel &gt; sT.fuelCapMax || ship.maxFuel &lt; sT.fuelCapMin) {</span>
+            // violation to fuel capacity
+<span class="nc" id="L416">            Result.failure(ParserException(&quot;Fuel Capacity ${ship.maxFuel} invalid for type $sT.&quot;))</span>
+<span class="pc bpc" id="L417" title="2 of 4 branches missed.">        } else if (ship.fuelConsumption &gt; sT.fuelConsumpMax || ship.fuelConsumption &lt; sT.fuelConsumpMin) {</span>
+            // violation to fuel consumption
+<span class="nc" id="L419">            Result.failure(ParserException(&quot;Fuel Consumption ${ship.fuelConsumption} invalid for type $sT.&quot;))</span>
+<span class="pc bpc" id="L420" title="2 of 4 branches missed.">        } else if (ship.visibilityRange &gt; sT.visRangeMax || ship.visibilityRange &lt; sT.visRangeMin) {</span>
+            // violation to fuel consumption
+<span class="nc" id="L422">            Result.failure(ParserException(&quot;Visibility Range ${ship.visibilityRange} invalid for type $sT.&quot;))</span>
+        } else {
+<span class="fc" id="L424">            Result.success(Unit)</span>
+        }
+    }
+
+    /**
+     * Checks if the given corporation collects the given garbage type.
+     * Assumes Corporations have been parsed already.
+     */
+    private fun doesCollect(corp: Int, gT: GarbageType): Boolean {
+<span class="pc bpc" id="L433" title="1 of 2 branches missed.">        return garbageTypes[corp]?.contains(gT) ?: false</span>
+    }
+
+    /**
+     * Checks if a ship on the given location can reach a harbor of the given corp.
+     */
+    private fun validateShipLocation(shipLocation: Int, corporation: Int): Boolean {
+<span class="pc bpc" id="L440" title="1 of 2 branches missed.">        val harbors = corporationsById[corporation]?.harbors</span>
+<span class="pc bpc" id="L441" title="3 of 6 branches missed.">        if (harbors.isNullOrEmpty()) {</span>
+<span class="nc" id="L442">            return false</span>
+        }
+<span class="pc bpc" id="L444" title="1 of 2 branches missed.">        val shipTile = oceanMap.getTileByID(shipLocation).getOrElse { return false }</span>
+<span class="fc" id="L445">        return pathFinder.isReachable(shipTile, harbors)</span>
+    }
+
+    /**
+     * Checks if the given corporation has at least one ship for each specified garbage type.
+     * @param corporation ID of corporation
+     */
+    private fun hasShipForGarbageTypes(corporation: Int): Result&lt;Unit&gt; {
+<span class="pc bpc" id="L453" title="1 of 4 branches missed.">        for (gT in garbageTypes[corporation].orEmpty()) {</span>
+<span class="pc bpc" id="L454" title="1 of 2 branches missed.">            val hasShip = corporationsById[corporation]?.ships</span>
+<span class="pc bpc" id="L455" title="1 of 4 branches missed.">                ?.any { ship -&gt; ship.maxGarbageCapacity[gT] != null } ?: false</span>
+<span class="pc bpc" id="L456" title="1 of 2 branches missed.">            if (!hasShip) {</span>
+<span class="nc" id="L457">                return Result.failure(ParserException(&quot;Corp $corporation does not have a ship for $gT.&quot;))</span>
+            }
+        }
+<span class="fc" id="L460">        return Result.success(Unit)</span>
+    }
+
+    /**
+     * Checks if the ship is being claimed by corporation.
+     */
+    private fun doesCorpClaimShip(corporation: Int, ship: Ship): Boolean {
+<span class="pc bpc" id="L467" title="1 of 2 branches missed.">        return corpToClaimedShips[corporation]?.contains(ship.id) ?: false</span>
+    }
+
+    /**
+     * Checks if a corporation actually got all claimed ships.
+     */
+    private fun didCorpsGetAllClaimedShips(): Boolean {
+<span class="fc bfc" id="L474" title="All 2 branches covered.">        for ((corpID, shipsOfCorp) in corpToClaimedShips) {</span>
+<span class="fc bfc" id="L475" title="All 2 branches covered.">            for (shipID in shipsOfCorp) {</span>
+<span class="pc bpc" id="L476" title="3 of 6 branches missed.">                val ship = ships[shipID]?.corporation?.id == corpID</span>
+<span class="pc bpc" id="L477" title="1 of 2 branches missed.">                if (!ship) {</span>
+<span class="nc" id="L478">                    return false</span>
+                }
+            }
+        }
+
+<span class="fc" id="L483">        return true</span>
+    }
+
+    /**
+     * Checks uniqueness of corp and ship names.
+     * Needs parsing to be done first.
+     * Will compare the count of names to the count of IDs.
+     */
+    private fun areNamesUnique(): Boolean {
+<span class="pc bpc" id="L492" title="2 of 4 branches missed.">        return shipNames.size == ships.size &amp;&amp; corpNames.size == corporationsById.size</span>
+    }
+
+    /**
+     * Checks if all harbors have been claimed by at least one corporation.
+     */
+    private fun allHarborsClaimed(): Boolean {
+<span class="fc" id="L499">        return claimedHarbors == simulationData.harborTiles</span>
+    }
+
+    /**
+     * Validates that the given ship JSONObject does not contain fields it shouldn't have due to the ship type.
+     * Returns true if no excess fields were found.
+     */
+    private fun validateNoExcessFields(shipJson: JSONObject, shipType: ShipType): Boolean {
+<span class="fc" id="L507">        val correctJsonKeys = mutableSetOf(</span>
+<span class="fc" id="L508">            JsonKeys.ID, JsonKeys.NAME, JsonKeys.TYPE, JsonKeys.CORPORATION, JsonKeys.LOCATION, JsonKeys.MAX_VELOCITY,</span>
+<span class="fc" id="L509">            JsonKeys.ACCELERATION, JsonKeys.FUEL_CAPACITY, JsonKeys.FUEL_CONSUMPTION</span>
+        )
+<span class="fc" id="L511">        correctJsonKeys.addAll(</span>
+<span class="pc bpc" id="L512" title="1 of 4 branches missed.">            when (shipType) {</span>
+<span class="fc" id="L513">                ShipType.SCOUTING -&gt; setOf(JsonKeys.VISIBILITY_RANGE)</span>
+<span class="fc" id="L514">                ShipType.COORDINATING -&gt; setOf(JsonKeys.VISIBILITY_RANGE)</span>
+<span class="fc" id="L515">                ShipType.COLLECTING -&gt; setOf(JsonKeys.GARBAGE_TYPE, JsonKeys.CAPACITY)</span>
+<span class="pc" id="L516">                ShipType.REFUELING -&gt; return false // Since refueling ship shouldn't be present during the parsing</span>
+            }
+        )
+
+<span class="fc" id="L520">        return shipJson.keySet() == correctJsonKeys</span>
+    }
+
+    /**
+     * Sorts list ownShips in all corporations.
+     */
+    private fun sortShips() {
+<span class="fc bfc" id="L527" title="All 2 branches covered.">        for ((_, currentInfo) in corporationsById) {</span>
+<span class="fc" id="L528">            currentInfo.ships.sortBy { it.id }</span>
+        }
+<span class="fc" id="L530">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

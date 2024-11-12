@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Simulation.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.control</a> &gt; <span class="el_source">Simulation.kt</span></div><h1>Simulation.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.control
+
+import de.unisaarland.cs.se.selab.Logger
+import de.unisaarland.cs.se.selab.enums.TileType
+import de.unisaarland.cs.se.selab.parser.SimulationData
+
+/**
+ * The Simulation class
+ */
+<span class="fc" id="L10">class Simulation(</span>
+<span class="pc" id="L11">    val simulationData: SimulationData,</span>
+<span class="fc" id="L12">    private val maxTicks: Int</span>
+) {
+    private val oceanMap =
+<span class="pc bpc" id="L15" title="1 of 2 branches missed.">        simulationData.oceanMap ?: throw IllegalArgumentException(&quot;Map wasn't present after parsing.&quot;)</span>
+
+<span class="fc" id="L17">    private val corporations = simulationData.corporations.values.sortedBy { it.id }</span>
+
+<span class="fc" id="L19">    private val visibilityHandler = VisibilityHandler(oceanMap, corporations)</span>
+<span class="fc" id="L20">    private val pathFinder = PathFinder(oceanMap)</span>
+<span class="fc" id="L21">    private val eventHandler = EventHandler(simulationData, oceanMap, visibilityHandler)</span>
+<span class="fc" id="L22">    private val taskHandler = TaskHandler(simulationData, oceanMap, pathFinder)</span>
+<span class="fc" id="L23">    private val driftHandler = DriftHandler(oceanMap)</span>
+<span class="fc" id="L24">    private val movementHandler = MovementHandler(pathFinder, oceanMap, visibilityHandler)</span>
+<span class="fc" id="L25">    private val shipHandler = ShipHandler(oceanMap, visibilityHandler, corporations)</span>
+
+<span class="fc" id="L27">    init {</span>
+
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        oceanMap.tiles.values.removeIf { it.type == TileType.LAND }</span>
+<span class="fc" id="L30">        Logger.initializeCorpGarbage(simulationData.corporations.keys.toList())</span>
+<span class="fc" id="L31">        Logger.logSimStart()</span>
+<span class="fc" id="L32">        run()</span>
+<span class="fc" id="L33">    }</span>
+
+    /**
+     * run the simulation
+     */
+    private fun run() {
+<span class="fc bfc" id="L39" title="All 2 branches covered.">        for (currentTick in 0 until maxTicks) {</span>
+<span class="fc" id="L40">            Logger.logTickStart(currentTick)</span>
+
+<span class="fc bfc" id="L42" title="All 2 branches covered.">            for (corporation in corporations) {</span>
+<span class="pc bpc" id="L43" title="1 of 2 branches missed.">                corporation.ships.removeIf { !oceanMap.getShipExists(it) }</span>
+<span class="fc" id="L44">                visibilityHandler.updateCorpInformation(corporation)</span>
+<span class="fc" id="L45">                corporation.assignedShipsPerTile.clear()</span>
+            }
+
+<span class="fc bfc" id="L48" title="All 2 branches covered.">            for (corporation in corporations) {</span>
+<span class="fc" id="L49">                movementHandler.movementPhase(corporation, simulationData.harbors)</span>
+<span class="fc" id="L50">                shipHandler.attachTracker(corporation)</span>
+<span class="fc" id="L51">                shipHandler.collectionPhase(corporation)</span>
+<span class="fc" id="L52">                shipHandler.cooperationPhase(corporation)</span>
+<span class="fc" id="L53">                shipHandler.refuelingPhase(corporation)</span>
+<span class="fc" id="L54">                shipHandler.unloadingPhase(corporation)</span>
+                // Adding 2 more phases
+<span class="fc" id="L56">                shipHandler.repairingPhase(corporation)</span>
+<span class="fc" id="L57">                shipHandler.purchasingPhase(corporation)</span>
+<span class="fc" id="L58">                Logger.logFinishAction(corporation.id)</span>
+            }
+
+<span class="fc" id="L61">            driftHandler.driftGarbage()</span>
+<span class="fc" id="L62">            driftHandler.driftShips() // Add a small cancellation update</span>
+<span class="fc" id="L63">            eventHandler.updateEvents(currentTick)</span>
+<span class="fc" id="L64">            taskHandler.updateTasks(currentTick)</span>
+        }
+<span class="fc" id="L66">        Logger.logSimEnd()</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        Logger.logStatistics(oceanMap.garbageToTile.keys.sumOf { it.amount })</span>
+<span class="fc" id="L68">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

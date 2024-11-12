@@ -1,0 +1,593 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ShipHandler.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.control</a> &gt; <span class="el_source">ShipHandler.kt</span></div><h1>ShipHandler.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.control
+
+import de.unisaarland.cs.se.selab.Constants
+import de.unisaarland.cs.se.selab.Logger
+import de.unisaarland.cs.se.selab.data.Corporation
+import de.unisaarland.cs.se.selab.data.Garbage
+import de.unisaarland.cs.se.selab.data.OceanMap
+import de.unisaarland.cs.se.selab.data.RefuelLogData
+import de.unisaarland.cs.se.selab.data.Ship
+import de.unisaarland.cs.se.selab.enums.Behaviour
+import de.unisaarland.cs.se.selab.enums.GarbageType
+import de.unisaarland.cs.se.selab.enums.ShipType
+import de.unisaarland.cs.se.selab.task.CooperationTask
+
+/**
+ * Handles various ship-related tasks such as attaching trackers, collecting garbage,
+ * refueling, unloading, and cooperation between corporations.
+ */
+<span class="fc" id="L19">class ShipHandler(</span>
+<span class="fc" id="L20">    private val oceanMap: OceanMap,</span>
+<span class="fc" id="L21">    private val visibilityHandler: VisibilityHandler,</span>
+<span class="fc" id="L22">    private val corporations: List&lt;Corporation&gt;</span>
+) {
+
+    /**
+     * Handles the tracker attachment for the given corporation.
+     */
+    fun attachTracker(corporation: Corporation) {
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        for (ship in corporation.ships) {</span>
+            // Here also checking, if the ship is refueling or being refueled by other ship
+<span class="pc bpc" id="L31" title="5 of 6 branches missed.">            if (ship.canAttachTracker() &amp;&amp; !ship.refuelingFromShip &amp;&amp; ship.serviceAvailable) {</span>
+<span class="nc" id="L32">                attachTracker(ship)</span>
+            }
+        }
+<span class="fc" id="L35">    }</span>
+
+    /**
+     * Attaches tracker to all garbage piles that are on the tile of the given ship.
+     */
+    private fun attachTracker(ship: Ship) {
+<span class="nc" id="L41">        val shipTile = oceanMap.getShipTile(ship)</span>
+<span class="nc bnc" id="L42" title="All 2 branches missed.">        for (garbage in oceanMap.getGarbageOnTile(shipTile)) {</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">            if (garbage !in ship.corporation.trackedGarbage) {</span>
+<span class="nc" id="L44">                ship.corporation.trackedGarbage.add(garbage)</span>
+<span class="nc" id="L45">                Logger.logAttachTracker(ship.corporation.id, garbage.id, ship.id)</span>
+            }
+        }
+<span class="nc" id="L48">    }</span>
+
+    /**
+     * Handles the collection phase for the given corporation.
+     */
+    fun collectionPhase(corporation: Corporation) {
+<span class="fc" id="L54">        Logger.logCorpCollectGarbage(corporation.id)</span>
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        for (ship in corporation.ships) {</span>
+            // Here also checking, if the ship is not refueling or being refueled by other ship
+<span class="pc bpc" id="L57" title="2 of 6 branches missed.">            if (ship.canCollect() &amp;&amp; !ship.refuelingFromShip &amp;&amp; ship.type != ShipType.REFUELING) {</span>
+<span class="fc" id="L58">                collectGarbage(ship)</span>
+            }
+        }
+<span class="fc" id="L61">    }</span>
+
+    /**
+     * Collects garbage on the tile of the given ship. The garbage will be collected and logged
+     * in the following order: first by garbage type (PLASTIC, then OIL, then CHEMICALS),
+     * and second by garbage id.
+     *
+     * The ship will stop collecting if it encounters garbage that it could theoretically pick up
+     * (because it is a collecting ship of that garbage type or has a container for it),
+     * but is unable to do so due to capacity limitations or other conditions.
+     *
+     * @see canCollectPlastic
+     */
+    private fun collectGarbage(ship: Ship) {
+<span class="fc" id="L75">        val shipTile = oceanMap.getShipTile(ship)</span>
+<span class="fc" id="L76">        val garbageOnTile = oceanMap.getGarbageOnTile(shipTile)</span>
+<span class="fc" id="L77">        val garbagePerType = garbageOnTile.groupBy { it.type }</span>
+<span class="fc" id="L78">        val canCollectPlastic = canCollectPlastic(ship)</span>
+
+        // Creating an ordered garbageType
+<span class="fc" id="L81">        val orderedGarbage = listOf(GarbageType.PLASTIC, GarbageType.OIL, GarbageType.CHEMICALS)</span>
+
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        for (garbageType in orderedGarbage) {</span>
+<span class="fc bfc" id="L84" title="All 4 branches covered.">            for (garbage in garbagePerType[garbageType].orEmpty()) {</span>
+<span class="fc" id="L85">                val couldCollect = collectGarbage(ship, garbage, canCollectPlastic)</span>
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">                if (!couldCollect) break</span>
+            }
+        }
+<span class="fc" id="L89">    }</span>
+
+    /**
+     * Checks if the ships on the tile of the given ship have a sufficient collective capacity
+     * to pick up all plastic garbage on that tile.
+     */
+    private fun canCollectPlastic(ship: Ship): Boolean {
+<span class="fc" id="L96">        val shipTile = oceanMap.getShipTile(ship)</span>
+<span class="fc" id="L97">        val garbageOnTile = oceanMap.getGarbageOnTile(shipTile)</span>
+<span class="fc" id="L98">        val shipsOnTile = oceanMap.getShipsOnTile(shipTile)</span>
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">        val plasticGarbageSum = SumsPerTypeUtil.getGarbageSumsPerType(garbageOnTile)[GarbageType.PLASTIC] ?: 0</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        val plasticCapacitySum = SumsPerTypeUtil.getCapacitySumsPerType(shipsOnTile)[GarbageType.PLASTIC] ?: 0</span>
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">        return plasticCapacitySum &gt;= plasticGarbageSum</span>
+    }
+
+    /**
+     * Collects and logs the given garbage with the given ship. Returns false if the ship could theoretically
+     * pick up the garbage (because it is a collecting ship of that garbage type or has a container for it),
+     * but is unable to do so due to capacity limitations or other conditions. Returns true otherwise.
+     */
+    private fun collectGarbage(ship: Ship, garbage: Garbage, canCollectPlastic: Boolean): Boolean {
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">        val shipCapacity = ship.garbageCapacity[garbage.type] ?: return true</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">        val isPlastic = garbage.type == GarbageType.PLASTIC</span>
+<span class="pc bpc" id="L112" title="4 of 6 branches missed.">        if (shipCapacity == 0 || (isPlastic &amp;&amp; !canCollectPlastic)) return false</span>
+<span class="pc bpc" id="L113" title="1 of 2 branches missed.">        if (shipCapacity &gt;= garbage.amount) {</span>
+<span class="fc" id="L114">            ship.garbageCapacity[garbage.type] = shipCapacity - garbage.amount</span>
+<span class="fc" id="L115">            oceanMap.removeGarbage(garbage)</span>
+<span class="fc" id="L116">            Logger.logCollectGarbage(</span>
+<span class="fc" id="L117">                ship.id,</span>
+<span class="fc" id="L118">                garbage.amount,</span>
+<span class="fc" id="L119">                garbage.id,</span>
+<span class="fc" id="L120">                garbage.type,</span>
+<span class="fc" id="L121">                ship.corporation.id</span>
+            )
+<span class="nc bnc" id="L123" title="All 2 branches missed.">        } else if (shipCapacity &gt; 0) {</span>
+<span class="nc" id="L124">            ship.garbageCapacity[garbage.type] = 0</span>
+<span class="nc" id="L125">            garbage.amount -= shipCapacity</span>
+<span class="nc" id="L126">            Logger.logCollectGarbage(</span>
+<span class="nc" id="L127">                ship.id,</span>
+<span class="nc" id="L128">                shipCapacity,</span>
+<span class="nc" id="L129">                garbage.id,</span>
+<span class="nc" id="L130">                garbage.type,</span>
+<span class="nc" id="L131">                ship.corporation.id</span>
+            )
+        }
+<span class="fc" id="L134">        return true</span>
+    }
+
+    /**
+     * Handles the cooperation phase for the given corporation.
+     */
+    fun cooperationPhase(corporation: Corporation) {
+<span class="fc" id="L141">        Logger.logCoopStart(corporation.id)</span>
+
+<span class="fc bfc" id="L143" title="All 2 branches covered.">        for (ship in corporation.ships) {</span>
+<span class="fc" id="L144">            val shipTile = oceanMap.getShipTile(ship)</span>
+<span class="fc bfc" id="L145" title="All 2 branches covered.">            for (otherShip in oceanMap.getShipsOnTile(shipTile)) {</span>
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">                if (ship.canCooperateWith(otherShip)) {</span>
+<span class="nc" id="L147">                    visibilityHandler.updateCorpInformation(otherShip.corporation, corporation)</span>
+<span class="nc" id="L148">                    corporation.lastCooperated = otherShip.corporation</span>
+<span class="nc" id="L149">                    Logger.logCoopWith(corporation.id, otherShip.corporation.id, ship.id, otherShip.id)</span>
+                }
+            }
+<span class="fc" id="L152">            performCooperationTask(ship)</span>
+        }
+<span class="fc" id="L154">    }</span>
+
+    /**
+     * If the given ship has a cooperation task and waited at the target tile for one tick,
+     * then it will now cooperate with every corporation that has a harbor at the target tile.
+     */
+    private fun performCooperationTask(ship: Ship) {
+<span class="fc bfc" id="L161" title="All 2 branches covered.">        val shipTask = ship.task ?: return</span>
+<span class="pc bpc" id="L162" title="3 of 4 branches missed.">        if (shipTask is CooperationTask &amp;&amp; shipTask.finished) {</span>
+<span class="nc" id="L163">            val shipTile = oceanMap.getShipTile(ship)</span>
+            // Get all corporations with harbors at the target tile.
+<span class="nc bnc" id="L165" title="All 2 branches missed.">            for (corpWithHarbour in corporations.filter { shipTile in it.harbors }) {</span>
+<span class="nc" id="L166">                visibilityHandler.updateCorpInformation(ship.corporation, corpWithHarbour)</span>
+            }
+            // The task is now completed.
+<span class="nc" id="L169">            ship.task = null</span>
+        }
+<span class="fc" id="L171">    }</span>
+
+    /**
+     * Handles the refueling phase for the given corporation.
+     */
+    fun refuelingPhase(corporation: Corporation) {
+<span class="fc" id="L177">        Logger.logRefuelStart(corporation.id)</span>
+
+<span class="fc" id="L179">        val affordedShips = mutableListOf&lt;Ship&gt;()</span>
+<span class="fc" id="L180">        val logShips = mutableMapOf&lt;Int, RefuelLogData&gt;()</span>
+        // Finishing refueling of ships that arrived in the last tick
+<span class="pc bpc" id="L182" title="1 of 2 branches missed.">        for (ship in corporation.shipsRefuelStationEnded) {</span>
+<span class="nc" id="L183">            refuelShipEnd(ship, logShips)</span>
+        }
+        // Starting refueling for those who arrived at harbors at this tick
+<span class="pc bpc" id="L186" title="1 of 2 branches missed.">        for (ship in corporation.shipsRefuelStationStarted) {</span>
+<span class="nc" id="L187">            refuelShipStart(ship, affordedShips, logShips)</span>
+        }
+<span class="fc" id="L189">        corporation.shipsRefuelStationStarted.clear()</span>
+<span class="fc" id="L190">        corporation.shipsRefuelStationEnded.clear()</span>
+<span class="fc" id="L191">        corporation.shipsRefuelStationEnded.addAll(affordedShips)</span>
+
+<span class="fc" id="L193">        displayLogData(logShips)</span>
+
+<span class="fc" id="L195">        logShips.clear()</span>
+
+        // Now refueling ships from refueling ship
+<span class="fc bfc" id="L198" title="All 2 branches covered.">        for (ship in corporation.ships) {</span>
+            // Here checking the need of refueling, and it's being refueled by other ship
+<span class="fc bfc" id="L200" title="All 2 branches covered.">            if (ship.refuelingShip != null) {</span>
+<span class="fc" id="L201">                refuelOtherShip(ship, logShips)</span>
+<span class="fc" id="L202">                corporation.shipsRefuelStationStarted.remove(ship.refuelingShip)</span>
+            }
+        }
+        // Displaying
+<span class="fc" id="L206">        displayLogData(logShips)</span>
+<span class="fc" id="L207">    }</span>
+
+    private fun displayLogData(logShips: MutableMap&lt;Int, RefuelLogData&gt;) {
+        // Now sorting the log data
+<span class="fc" id="L211">        val sortedData = logShips.toSortedMap()</span>
+
+        // Displaying it
+<span class="fc bfc" id="L214" title="All 2 branches covered.">        for (data in sortedData.values) {</span>
+<span class="pc bpc" id="L215" title="3 of 4 branches missed.">            if (data.refuelFromStation &amp;&amp; data.refuelStarted) {</span>
+<span class="nc" id="L216">                Logger.logRefuelingFromStationStarted(</span>
+<span class="nc" id="L217">                    data.shipID,</span>
+<span class="nc" id="L218">                    data.harborID,</span>
+<span class="nc" id="L219">                    data.success,</span>
+<span class="nc" id="L220">                    data.amount,</span>
+<span class="nc" id="L221">                    data.refuelOwnCap</span>
+                )
+<span class="pc bpc" id="L223" title="1 of 2 branches missed.">            } else if (data.refuelFromStation) {</span>
+<span class="nc" id="L224">                Logger.logRefuelingDone(data.shipID, data.harborID)</span>
+            } else {
+<span class="pc bpc" id="L226" title="1 of 2 branches missed.">                data.otherShipID?.let { Logger.logRefuelFromShip(data.shipID, it, data.refuelStarted) }</span>
+            }
+        }
+<span class="fc" id="L229">    }</span>
+
+    /**
+     * Starts refueling the given ship.
+     * And then adds it to the ending queue.
+     * @param ship which needs to be refueled.
+     * @return Unit
+     */
+    private fun refuelShipStart(
+        ship: Ship,
+        affordedShips: MutableList&lt;Ship&gt;,
+        logShips: MutableMap&lt;
+            Int,
+            RefuelLogData
+            &gt;
+    ) {
+<span class="nc" id="L245">        val shipTile = oceanMap.getShipTile(ship)</span>
+
+        // First we check if the corp can afford the refueling
+<span class="nc bnc" id="L248" title="All 4 branches missed.">        val refuelingCost = ship.targetHarbor?.refuelingStation?.refuelCost ?: 0</span>
+<span class="nc bnc" id="L249" title="All 10 branches missed.">        if (ship.targetHarbor?.refuelingStation?.refuelTimes?.let { it &lt; 1 } == true) {</span>
+<span class="nc" id="L250">            ship.refuelingFromStation = false</span>
+<span class="nc" id="L251">            return</span>
+        }
+
+<span class="nc bnc" id="L254" title="All 2 branches missed.">        if (ship.corporation.credits &gt;= refuelingCost) {</span>
+            // ship.decoupleShips() // Necessary?
+<span class="nc" id="L256">            ship.refuelingFromStation = true</span>
+<span class="nc" id="L257">            ship.corporation.credits -= refuelingCost // Withdrawing the money from corporation</span>
+<span class="nc" id="L258">            val logRefuelCap = ship.refuelingOwnCap</span>
+            // Logger.logRefuelingFromStationStarted(ship.id, shipTile.harborID ?: 0, true, refuelingCost, logRefuelCap)
+<span class="nc" id="L260">            logShips[ship.id] = RefuelLogData(</span>
+<span class="nc" id="L261">                ship.id,</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">                shipTile.harborID ?: 0,</span>
+<span class="nc" id="L263">                refuelingCost,</span>
+<span class="nc" id="L264">                true,</span>
+<span class="nc" id="L265">                logRefuelCap,</span>
+<span class="nc" id="L266">                true,</span>
+<span class="nc" id="L267">                null,</span>
+<span class="nc" id="L268">                true</span>
+            )
+            // Adding the ship to the refuel ending queue
+<span class="nc" id="L271">            affordedShips.add(ship)</span>
+        } else {
+<span class="nc" id="L273">            logShips[ship.id] = RefuelLogData(</span>
+<span class="nc" id="L274">                ship.id,</span>
+<span class="nc bnc" id="L275" title="All 2 branches missed.">                shipTile.harborID ?: 0,</span>
+<span class="nc" id="L276">                refuelingCost,</span>
+<span class="nc" id="L277">                true,</span>
+<span class="nc" id="L278">                false,</span>
+<span class="nc" id="L279">                true,</span>
+<span class="nc" id="L280">                null,</span>
+<span class="nc" id="L281">                false</span>
+            )
+            // Logger.logRefuelingFromStationStarted(ship.id, shipTile.harborID ?: 0, false, null, false)
+        }
+<span class="nc" id="L285">        ship.velocity = 0</span>
+<span class="nc" id="L286">    }</span>
+
+    /**
+     * Ends the refueling process of the ships at the station
+     * @param ship which needs to be refueled
+     * @return Unit
+     * */
+    private fun refuelShipEnd(ship: Ship, logShips: MutableMap&lt;Int, RefuelLogData&gt;) {
+<span class="nc" id="L294">        val shipTile = oceanMap.getShipTile(ship)</span>
+<span class="nc" id="L295">        ship.velocity = 0</span>
+        // First check if the refueling station can actually afford it
+<span class="nc bnc" id="L297" title="All 10 branches missed.">        if (ship.targetHarbor?.refuelingStation?.refuelTimes?.let { it &lt; 1 } == true) {</span>
+<span class="nc" id="L298">            ship.refuelingFromStation = false</span>
+<span class="nc" id="L299">            return</span>
+        }
+
+        // Now the refueling must have been completed
+<span class="nc" id="L303">        ship.waitingAtHarbor = false</span>
+<span class="nc bnc" id="L304" title="All 4 branches missed.">        val refuelingCost = ship.targetHarbor?.refuelingStation?.refuelCost ?: 0</span>
+
+        // Logger.logRefuelingDone(ship.id, shipTile.harborID ?: 0)
+<span class="nc" id="L307">        logShips[ship.id] = RefuelLogData(</span>
+<span class="nc" id="L308">            ship.id,</span>
+<span class="nc bnc" id="L309" title="All 2 branches missed.">            shipTile.harborID ?: 0,</span>
+<span class="nc" id="L310">            refuelingCost,</span>
+<span class="nc" id="L311">            true,</span>
+<span class="nc" id="L312">            false,</span>
+<span class="nc" id="L313">            false,</span>
+<span class="nc" id="L314">            null,</span>
+<span class="nc" id="L315">            true</span>
+        )
+<span class="nc" id="L317">        ship.refuelingFromStation = false</span>
+
+        // Restoring the fuel of the ship
+<span class="nc bnc" id="L320" title="All 2 branches missed.">        if (ship.refuelingOwnCap) {</span>
+<span class="nc" id="L321">            ship.refuelFuel = ship.refuelCap</span>
+<span class="nc" id="L322">            ship.refuelingOwnCap = false</span>
+        } else {
+<span class="nc" id="L324">            ship.fuel = ship.maxFuel</span>
+        }
+<span class="nc bnc" id="L326" title="All 4 branches missed.">        ship.targetHarbor?.refuelingStation?.let { station -&gt;</span>
+<span class="nc" id="L327">            station.refuelTimes -= 1</span>
+<span class="nc" id="L328">        }</span>
+<span class="nc" id="L329">        ship.targetHarbor = null // Removing the target harbor of the ship</span>
+<span class="nc" id="L330">        ship.refuelingFromStation = false</span>
+
+<span class="nc bnc" id="L332" title="All 4 branches missed.">        if (ship.garbageCapacity.any { it.value == 0 }) {</span>
+            // If we have a full garbage container,
+            // go unloading in the next tick.
+<span class="nc" id="L335">            ship.behaviour = Behaviour.UNLOADING</span>
+        } else {
+<span class="nc" id="L337">            ship.behaviour = Behaviour.DEFAULT</span>
+        }
+<span class="nc" id="L339">    }</span>
+
+    /**
+     * Refuels the ship from a refueling ship
+     * @param ship Ship needs to be refueled
+     * @return Unit
+     * */
+    private fun refuelOtherShip(ship: Ship, logShips: MutableMap&lt;Int, RefuelLogData&gt;) {
+        // First the ship finds a refueling ship
+<span class="fc" id="L348">        val shipTile = oceanMap.getShipTile(ship)</span>
+<span class="fc bfc" id="L349" title="All 2 branches covered.">        if (ship.refuelOtherStarted) {</span>
+<span class="fc" id="L350">            ship.refuelOtherStarted = false</span>
+<span class="pc bpc" id="L351" title="1 of 2 branches missed.">            ship.refuelingShip?.let { refuelShip -&gt;</span>
+<span class="fc" id="L352">                logShips[refuelShip.id] = RefuelLogData(</span>
+<span class="fc" id="L353">                    ship.id,</span>
+<span class="pc bpc" id="L354" title="1 of 2 branches missed.">                    shipTile.harborID ?: 0,</span>
+<span class="fc" id="L355">                    0,</span>
+<span class="fc" id="L356">                    false,</span>
+<span class="fc" id="L357">                    false,</span>
+<span class="fc" id="L358">                    true,</span>
+<span class="fc" id="L359">                    refuelShip.id,</span>
+<span class="fc" id="L360">                    true</span>
+                )
+<span class="fc" id="L362">            }</span>
+
+<span class="fc" id="L364">            ship.refuelWaitingTime-- // Timer started instantaneously</span>
+<span class="fc" id="L365">            ship.velocity = 0</span>
+<span class="pc bpc" id="L366" title="1 of 2 branches missed.">            ship.refuelingShip?.velocity = 0</span>
+<span class="pc bpc" id="L367" title="1 of 2 branches missed.">        } else if (ship.refuelWaitingTime &gt; 0) {</span>
+            // After that we'll wait till the ship is being refueled
+<span class="fc" id="L369">            ship.refuelWaitingTime--</span>
+<span class="fc" id="L370">            ship.velocity = 0</span>
+<span class="pc bpc" id="L371" title="1 of 2 branches missed.">            ship.refuelingShip?.velocity = 0</span>
+        } else {
+            // Now the refueling must have been completed
+<span class="nc bnc" id="L374" title="All 2 branches missed.">            ship.refuelingShip?.let { refuelShip -&gt;</span>
+<span class="nc" id="L375">                logShips[refuelShip.id] = RefuelLogData(</span>
+<span class="nc" id="L376">                    ship.id,</span>
+<span class="nc bnc" id="L377" title="All 2 branches missed.">                    shipTile.harborID ?: 0,</span>
+<span class="nc" id="L378">                    0,</span>
+<span class="nc" id="L379">                    false,</span>
+<span class="nc" id="L380">                    false,</span>
+<span class="nc" id="L381">                    false,</span>
+<span class="nc" id="L382">                    refuelShip.id,</span>
+<span class="nc" id="L383">                    true</span>
+                )
+<span class="nc" id="L385">            }</span>
+<span class="nc" id="L386">            ship.velocity = 0</span>
+<span class="nc bnc" id="L387" title="All 2 branches missed.">            ship.refuelingShip?.velocity = 0</span>
+<span class="nc" id="L388">            ship.completeRequest()</span>
+        }
+<span class="fc" id="L390">    }</span>
+
+    /**
+     * Handles the unloading phase for the given corporation.
+     */
+    fun unloadingPhase(corporation: Corporation) {
+<span class="fc bfc" id="L396" title="All 2 branches covered.">        for (ship in corporation.ships) {</span>
+<span class="pc bpc" id="L397" title="1 of 2 branches missed.">            if (ship.isUnloading()) unloadShip(ship) // Integrated the check condition here only</span>
+        }
+<span class="fc" id="L399">    }</span>
+
+    /**
+     * Unload the given ship.
+     */
+    private fun unloadShip(ship: Ship) {
+        // val harborID = oceanMap.getShipTile(ship).harborID ?: 0 // Although we'll always get a harbor
+<span class="nc bnc" id="L406" title="All 2 branches missed.">        val harborID = ship.targetHarbor?.id ?: 0</span>
+        // Creating an ordered garbage type list
+<span class="nc" id="L408">        val orderedGarbageType = listOf(GarbageType.PLASTIC, GarbageType.OIL, GarbageType.CHEMICALS)</span>
+        // Checking for allowed garbages
+<span class="nc bnc" id="L410" title="All 6 branches missed.">        val allowedGarbages = ship.targetHarbor?.unloadingStation?.garbagesType.orEmpty()</span>
+
+<span class="nc" id="L412">        val allowedGarbagesInOrder = orderedGarbageType.filter { it in allowedGarbages }</span>
+
+<span class="nc bnc" id="L414" title="All 2 branches missed.">        for (garbageType in allowedGarbagesInOrder) {</span>
+<span class="nc bnc" id="L415" title="All 4 branches missed.">            if (ship.garbageCapacity[garbageType] == 0) {</span>
+<span class="nc" id="L416">                val garbageTypeCapacity = ship.maxGarbageCapacity.getValue(garbageType)</span>
+<span class="nc" id="L417">                ship.garbageCapacity[garbageType] = garbageTypeCapacity</span>
+<span class="nc bnc" id="L418" title="All 4 branches missed.">                val returnValue = ship.targetHarbor?.unloadingStation?.unloadReturn?.times(garbageTypeCapacity) ?: 0</span>
+<span class="nc" id="L419">                Logger.logUnload(ship.id, garbageTypeCapacity, garbageType, harborID, returnValue)</span>
+<span class="nc" id="L420">                ship.corporation.credits += returnValue // Adding credits to the corporation</span>
+            }
+        }
+<span class="nc" id="L423">        ship.behaviour = Behaviour.DEFAULT</span>
+<span class="nc" id="L424">        ship.waitingAtHarbor = false</span>
+<span class="nc" id="L425">    }</span>
+
+    /**
+     * Repairing phase of the corporation
+     * @param corporation Corporation
+     * @return Unit
+     * */
+    fun repairingPhase(corporation: Corporation) {
+<span class="fc" id="L433">        val shipAffordedRepair = mutableListOf&lt;Ship&gt;()</span>
+<span class="fc" id="L434">        val logShips = mutableMapOf&lt;Int, Pair&lt;Int, Int&gt;?&gt;()</span>
+        // First those ships which have to start repairing
+<span class="fc bfc" id="L436" title="All 2 branches covered.">        for (ship in corporation.shipStartedRepairing) {</span>
+<span class="fc" id="L437">            repairShipStart(ship, shipAffordedRepair, logShips)</span>
+        }
+<span class="fc" id="L439">        corporation.shipStartedRepairing.clear()</span>
+        // Now those ships which have completed their repairing
+<span class="fc bfc" id="L441" title="All 2 branches covered.">        for (ship in corporation.shipsDoneRepairing) {</span>
+<span class="fc" id="L442">            repairShipDone(ship, logShips)</span>
+        }
+<span class="fc" id="L444">        corporation.shipsDoneRepairing.clear()</span>
+<span class="fc" id="L445">        corporation.shipsDoneRepairing.addAll(shipAffordedRepair)</span>
+
+        // Now logging
+<span class="fc" id="L448">        val sortedLogShips = logShips.toSortedMap()</span>
+<span class="fc" id="L449">        sortedLogShips.map {</span>
+<span class="fc bfc" id="L450" title="All 2 branches covered.">            val (harborId, repairCost) = it.value ?: Pair(null, null)</span>
+<span class="pc bpc" id="L451" title="1 of 4 branches missed.">            if (harborId == null || repairCost == null) {</span>
+<span class="fc" id="L452">                Logger.logRepair(it.key, null, null, false)</span>
+            } else {
+<span class="fc" id="L454">                Logger.logRepair(it.key, harborId, repairCost, true)</span>
+            }
+<span class="fc" id="L456">        }</span>
+<span class="fc" id="L457">    }</span>
+
+    /**
+     * Starts repairing the ship
+     * @param ship Ship that needs to be repaired
+     * @return true if the ship started repairing, false otherwise
+     * */
+    private fun repairShipStart(
+        ship: Ship,
+        shipAffordedRepair: MutableList&lt;Ship&gt;,
+        logShips: MutableMap&lt;Int, Pair&lt;Int, Int&gt;?&gt;
+    ) {
+<span class="pc bpc" id="L469" title="1 of 2 branches missed.">        val harborID = ship.targetHarbor?.id ?: 0</span>
+<span class="pc bpc" id="L470" title="2 of 4 branches missed.">        val repairCost = ship.targetHarbor?.shipyardStation?.repairCost ?: 0 // Should never be 0</span>
+
+        // If the corp afford the repair
+<span class="pc bpc" id="L473" title="1 of 2 branches missed.">        if (ship.corporation.credits &gt;= repairCost) {</span>
+            // Logger.logRepair(ship.id, harborID, repairCost, true)
+<span class="fc" id="L475">            logShips[ship.id] = Pair(harborID, repairCost)</span>
+<span class="fc" id="L476">            ship.corporation.credits -= repairCost</span>
+<span class="fc" id="L477">            ship.decoupleShips() // In case this ship is about to refuel some ship</span>
+<span class="fc" id="L478">            shipAffordedRepair.add(ship)</span>
+        } else {
+            // In case the corp can't afford the repair,
+            // the ship will return to it's default behavior
+<span class="nc" id="L482">            ship.behaviour = Behaviour.DEFAULT</span>
+        }
+<span class="fc" id="L484">    }</span>
+
+    /**
+     * Repairs the ship, restoring it's default properties
+     * @param ship which needs to be repaired
+     * @return Unit
+     * */
+    private fun repairShip(ship: Ship) {
+<span class="pc bpc" id="L492" title="1 of 2 branches missed.">        if (ship.originalMaxVel != null) {</span>
+<span class="pc bpc" id="L493" title="1 of 2 branches missed.">            ship.maxVelocity = ship.originalMaxVel ?: 0</span>
+<span class="fc" id="L494">            ship.originalMaxVel = null</span>
+        }
+<span class="pc bpc" id="L496" title="1 of 2 branches missed.">        if (ship.orginalAccel != null) {</span>
+<span class="pc bpc" id="L497" title="1 of 2 branches missed.">            ship.acceleration = ship.orginalAccel ?: 0</span>
+<span class="fc" id="L498">            ship.orginalAccel = null</span>
+        }
+<span class="fc" id="L500">        ship.isDamaged = false</span>
+<span class="fc" id="L501">    }</span>
+
+    private fun repairShipDone(ship: Ship, logShips: MutableMap&lt;Int, Pair&lt;Int, Int&gt;?&gt;) {
+<span class="fc" id="L504">        ship.waitingAtHarbor = false</span>
+<span class="fc" id="L505">        repairShip(ship)</span>
+<span class="fc" id="L506">        ship.velocity = 0</span>
+<span class="fc" id="L507">        logShips[ship.id] = null</span>
+        // Logger.logRepair(ship.id, null, null, false)
+<span class="fc" id="L509">        ship.behaviour = Behaviour.DEFAULT</span>
+<span class="fc" id="L510">    }</span>
+
+    /**
+     * Purchasing phase of the corporation
+     * @param corporation Corporation
+     * @return Unit
+     * */
+    fun purchasingPhase(corporation: Corporation) {
+<span class="fc" id="L518">        val purchasingShip = corporation.buyingShip // Since there'll be just one ship</span>
+        // Check first, if the ship reached the station, order will be placed then
+<span class="fc bfc" id="L520" title="All 2 branches covered.">        if (purchasingShip != null) {</span>
+<span class="fc" id="L521">            purchaseShip(purchasingShip)</span>
+<span class="fc" id="L522">            corporation.buyingShip = null</span>
+        }
+        // Taking the delivery of the ship
+<span class="fc bfc" id="L525" title="All 2 branches covered.">        if (corporation.ordered) {</span>
+<span class="fc" id="L526">            recieveDeliveryShip(corporation)</span>
+        }
+<span class="fc" id="L528">    }</span>
+
+    private fun purchaseShip(ship: Ship) {
+<span class="pc bpc" id="L531" title="1 of 2 branches missed.">        val harborID = ship.targetHarbor?.id ?: 0</span>
+<span class="pc bpc" id="L532" title="2 of 4 branches missed.">        val shipCost = ship.targetHarbor?.shipyardStation?.shipCost ?: 0 // Should never be 0</span>
+        // Check if the corporation can afford the ship
+<span class="pc bpc" id="L534" title="1 of 2 branches missed.">        if (ship.corporation.credits &gt;= shipCost) {</span>
+<span class="fc" id="L535">            ship.corporation.credits -= shipCost</span>
+            // Saving the new ship props in the corporation
+<span class="pc bpc" id="L537" title="2 of 4 branches missed.">            ship.corporation.shipProp = ship.targetHarbor?.shipyardStation?.shipProp</span>
+<span class="pc bpc" id="L538" title="2 of 4 branches missed.">            ship.corporation.shipDeliveryTime = ship.targetHarbor?.shipyardStation?.deliveryTime ?: 0</span>
+            // ship.corporation.shipDeliveryTime-- // Counter started
+<span class="fc" id="L540">            ship.corporation.newShipID = ++Constants.MAX_SHIP_ID</span>
+<span class="fc" id="L541">            ship.corporation.ordered = true</span>
+<span class="pc bpc" id="L542" title="1 of 2 branches missed.">            ship.corporation.buyingLocation = ship.targetHarbor?.location ?: 0</span>
+<span class="fc" id="L543">            Logger.logShipPurchase(ship.id, ship.corporation.newShipID, harborID, shipCost, 0, 0, true)</span>
+            // Setting the ship free
+        } else {
+<span class="nc" id="L546">            ship.corporation.decidedToPurchase = false</span>
+        }
+<span class="fc" id="L548">        ship.purchasingStarted = false</span>
+<span class="fc" id="L549">        ship.behaviour = Behaviour.DEFAULT</span>
+<span class="fc" id="L550">        ship.goingToPurchase = false</span>
+<span class="fc" id="L551">    }</span>
+
+    /**
+     * Receives the delivery of the ship when delivery time is over
+     * @param corporation that has ordered the ship
+     * @return Unit
+     * */
+    private fun recieveDeliveryShip(corporation: Corporation) {
+<span class="fc bfc" id="L559" title="All 2 branches covered.">        if (corporation.shipDeliveryTime &gt; 0) { // Waiting</span>
+<span class="fc" id="L560">            corporation.shipDeliveryTime--</span>
+        } else {
+<span class="fc" id="L562">            val shipProp = corporation.shipProp</span>
+            // Now new ship is being created with following properties
+<span class="pc bpc" id="L564" title="1 of 2 branches missed.">            val newShip = shipProp?.let {</span>
+<span class="fc" id="L565">                Ship(</span>
+<span class="fc" id="L566">                    corporation.newShipID,</span>
+<span class="fc" id="L567">                    ShipType.REFUELING,</span>
+<span class="fc" id="L568">                    corporation,</span>
+<span class="fc" id="L569">                    it.maxVel,</span>
+<span class="fc" id="L570">                    shipProp.maxAccel,</span>
+<span class="fc" id="L571">                    shipProp.fuelCap,</span>
+<span class="fc" id="L572">                    shipProp.fuelConsum,</span>
+<span class="fc" id="L573">                    0,</span>
+<span class="fc" id="L574">                    mutableMapOf()</span>
+                )
+            }
+<span class="pc bpc" id="L577" title="1 of 2 branches missed.">            val buyingTile = oceanMap.getTileByID(corporation.buyingLocation).getOrNull()</span>
+<span class="pc bpc" id="L578" title="2 of 4 branches missed.">            if (newShip != null &amp;&amp; buyingTile != null) {</span>
+<span class="fc" id="L579">                newShip.refuelCap = shipProp.refuelingCap</span>
+<span class="fc" id="L580">                newShip.refuelFuel = shipProp.refuelingCap</span>
+<span class="fc" id="L581">                newShip.refuelTim = shipProp.refuelingTime</span>
+<span class="fc" id="L582">                corporation.ships.add(newShip)</span>
+<span class="fc" id="L583">                val tileID = corporation.buyingLocation // Should not be 0</span>
+<span class="fc" id="L584">                Logger.logShipPurchase(0, newShip.id, 0, 0, corporation.id, tileID, false)</span>
+                // Adding the ship on the tile
+<span class="fc" id="L586">                oceanMap.addShip(newShip, buyingTile)</span>
+            }
+<span class="fc" id="L588">            corporation.decidedToPurchase = false</span>
+<span class="fc" id="L589">            corporation.ordered = false</span>
+        }
+<span class="fc" id="L591">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

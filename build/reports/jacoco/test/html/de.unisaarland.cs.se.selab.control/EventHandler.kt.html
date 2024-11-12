@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EventHandler.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.control</a> &gt; <span class="el_source">EventHandler.kt</span></div><h1>EventHandler.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.control
+
+import de.unisaarland.cs.se.selab.data.OceanMap
+import de.unisaarland.cs.se.selab.event.DurationEvent
+import de.unisaarland.cs.se.selab.event.Event
+import de.unisaarland.cs.se.selab.event.OilEvent
+import de.unisaarland.cs.se.selab.event.StormEvent
+import de.unisaarland.cs.se.selab.event.TyphoonEvent
+import de.unisaarland.cs.se.selab.parser.SimulationData
+
+/**
+ * Handles the execution and removals of the events.
+ */
+<span class="fc" id="L14">class EventHandler(</span>
+    simulationData: SimulationData,
+<span class="fc" id="L16">    private val oceanMap: OceanMap,</span>
+<span class="fc" id="L17">    private val visibilityHandler: VisibilityHandler,</span>
+) {
+<span class="fc" id="L19">    private val events: ArrayDeque&lt;Event&gt; = ArrayDeque(</span>
+<span class="fc" id="L20">        simulationData.events.values.sortedWith(compareBy&lt;Event&gt; { it.tick }.thenBy { it.id })</span>
+    )
+<span class="fc" id="L22">    private val activeEvents = mutableSetOf&lt;DurationEvent&gt;()</span>
+
+    /**
+     * this function is called by simulation and checks if an events starts and updates the current active events.
+     * @param tick the current tick
+     */
+    fun updateEvents(tick: Int) {
+<span class="fc bfc" id="L29" title="All 6 branches covered.">        while (events.isNotEmpty() &amp;&amp; events.first().tick == tick) {</span>
+<span class="fc" id="L30">            val event = events.removeFirst()</span>
+<span class="fc" id="L31">            event.execute(oceanMap)</span>
+<span class="fc" id="L32">            when (event) {</span>
+<span class="pc bpc" id="L33" title="1 of 2 branches missed.">                is StormEvent -&gt; {</span>
+<span class="nc" id="L34">                    visibilityHandler.globalUpdateCorpInformation(event.affectedGarbage)</span>
+                }
+<span class="pc bpc" id="L36" title="1 of 2 branches missed.">                is OilEvent -&gt; {</span>
+<span class="nc" id="L37">                    visibilityHandler.globalUpdateCorpInformation(event.createdGarbage)</span>
+                }
+<span class="pc bpc" id="L39" title="1 of 2 branches missed.">                is DurationEvent -&gt; {</span>
+<span class="nc" id="L40">                    activeEvents.add(event)</span>
+                }
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">                is TyphoonEvent -&gt; {</span>
+<span class="fc" id="L43">                    visibilityHandler.globalUpdateCorpInformation(event.createdGarbage)</span>
+                }
+            }
+        }
+
+        // update active events and removes them from the set if they are finished.
+<span class="pc bnc" id="L49" title="All 2 branches missed.">        activeEvents.filter { it.tick &lt; tick }.filter { it.update(oceanMap) }.forEach {</span>
+<span class="nc" id="L50">            activeEvents.remove(it)</span>
+<span class="nc" id="L51">        }</span>
+<span class="fc" id="L52">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

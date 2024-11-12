@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Logger.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab</a> &gt; <span class="el_source">Logger.kt</span></div><h1>Logger.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab
+
+import de.unisaarland.cs.se.selab.enums.GarbageType
+import de.unisaarland.cs.se.selab.enums.RewardType
+import de.unisaarland.cs.se.selab.enums.TaskType
+import java.io.PrintWriter
+
+/**
+ * The Logger object
+ */
+object Logger {
+<span class="fc" id="L12">    private val collectedGarbage = mutableMapOf&lt;Int, Int&gt;()</span>
+<span class="pc" id="L13">    var printer = PrintWriter(System.out, true)</span>
+    private var plastic = 0
+    private var oil = 0
+    private var chemical = 0
+
+    /**
+     * Set path to output file, if specified. This will change output mode to &quot;FILE&quot;.
+     */
+
+    fun setFilePath(filePathStr: String) {
+<span class="nc" id="L23">        printer = PrintWriter(filePathStr)</span>
+<span class="nc" id="L24">    }</span>
+
+    /**
+     * Log singular parsing result.
+     */
+    fun logParsingResult(success: Boolean, filename: String) {
+<span class="fc" id="L30">        var outputLine = &quot;Initialization Info:&quot;</span>
+<span class="pc bpc" id="L31" title="1 of 2 branches missed.">        outputLine += if (success) {</span>
+<span class="fc" id="L32">            &quot; $filename successfully parsed and validated.&quot;</span>
+        } else {
+<span class="pc" id="L34">            &quot; $filename is invalid.&quot;</span>
+        }
+<span class="fc" id="L36">        printer.println(outputLine)</span>
+<span class="fc" id="L37">        printer.flush()</span>
+<span class="fc" id="L38">    }</span>
+
+    /**
+     * Initialize the Map for every corporation with amount 0
+     */
+    fun initializeCorpGarbage(corpIds: List&lt;Int&gt;) {
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        for (corpId in corpIds) {</span>
+<span class="fc" id="L45">            collectedGarbage[corpId] = 0</span>
+        }
+<span class="fc" id="L47">    }</span>
+
+    /**
+     * Log start of simulation.
+     */
+    fun logSimStart() {
+<span class="fc" id="L53">        printer.println(&quot;Simulation Info: Simulation started.&quot;)</span>
+<span class="fc" id="L54">        printer.flush()</span>
+<span class="fc" id="L55">    }</span>
+
+    /**
+     * Log start of a tick.
+     */
+    fun logTickStart(tick: Int) {
+<span class="fc" id="L61">        val outputLine = &quot;Simulation Info: Tick $tick started.&quot;</span>
+<span class="fc" id="L62">        printer.println(outputLine)</span>
+<span class="fc" id="L63">        printer.flush()</span>
+<span class="fc" id="L64">    }</span>
+
+    /**
+     * Log start of a move for corporation.
+     */
+    fun logStartMove(corporationId: Int) {
+<span class="fc" id="L70">        printer.println(&quot;Corporation Action: Corporation $corporationId is starting to move its ships.&quot;)</span>
+<span class="fc" id="L71">        printer.flush()</span>
+<span class="fc" id="L72">    }</span>
+
+    /**
+     * Log ship movement to certain tile.
+     */
+    fun logShipMove(shipId: Int, speed: Int, tileId: Int) {
+<span class="pc bpc" id="L78" title="1 of 2 branches missed.">        if (speed &gt;= Constants.TILE_DISTANCE) {</span>
+<span class="fc" id="L79">            printer.println(&quot;Ship Movement: Ship $shipId moved with speed $speed to tile $tileId.&quot;)</span>
+<span class="fc" id="L80">            printer.flush()</span>
+        }
+<span class="fc" id="L82">    }</span>
+
+    /**
+     * Log start of garbage collection for a corporation
+     */
+    fun logCorpCollectGarbage(corporationId: Int) {
+<span class="fc" id="L88">        printer.println(&quot;Corporation Action: Corporation $corporationId is starting to collect garbage.&quot;)</span>
+<span class="fc" id="L89">        printer.flush()</span>
+<span class="fc" id="L90">    }</span>
+
+    /**
+     * Log use of tracker from a ship.
+     */
+    fun logAttachTracker(corporationId: Int, garbageId: Int, shipId: Int) {
+<span class="nc" id="L96">        printer.println(</span>
+<span class="nc" id="L97">            &quot;Corporation Action: Corporation $corporationId attached tracker to garbage $garbageId &quot; +</span>
+<span class="nc" id="L98">                &quot;with ship $shipId.&quot;</span>
+        )
+<span class="nc" id="L100">        printer.flush()</span>
+<span class="nc" id="L101">    }</span>
+
+    /**
+     * Log how much garbage collected by a ship.
+     */
+    fun logCollectGarbage(shipId: Int, amount: Int, garbageId: Int, garbageType: GarbageType, corporationId: Int) {
+<span class="pc bpc" id="L107" title="3 of 4 branches missed.">        when (garbageType) {</span>
+<span class="nc" id="L108">            GarbageType.PLASTIC -&gt; plastic += amount</span>
+<span class="fc" id="L109">            GarbageType.OIL -&gt; oil += amount</span>
+<span class="nc" id="L110">            GarbageType.CHEMICALS -&gt; chemical += amount</span>
+        }
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">        collectedGarbage.compute(corporationId) { _, v -&gt; v?.plus(amount) ?: amount }</span>
+<span class="fc" id="L113">        printer.println(</span>
+<span class="fc" id="L114">            &quot;Garbage Collection: Ship $shipId collected $amount of garbage $garbageType &quot; +</span>
+<span class="fc" id="L115">                &quot;with $garbageId.&quot;</span>
+        )
+<span class="fc" id="L117">        printer.flush()</span>
+<span class="fc" id="L118">    }</span>
+
+    /**
+     * Log start of cooperation of a corporation
+     */
+    fun logCoopStart(corporationId: Int) {
+<span class="fc" id="L124">        printer.println(</span>
+<span class="fc" id="L125">            &quot;Corporation Action: Corporation $corporationId &quot; +</span>
+                &quot;is starting to cooperate with other corporations.&quot;
+        )
+<span class="fc" id="L128">        printer.flush()</span>
+<span class="fc" id="L129">    }</span>
+
+    /**
+     * Log cooperation between two corporation according to their respective ship.
+     */
+    fun logCoopWith(corporationA: Int, corporationB: Int, shipA: Int, shipB: Int) {
+<span class="nc" id="L135">        printer.println(</span>
+<span class="nc" id="L136">            &quot;Cooperation: Corporation $corporationA cooperated with corporation $corporationB with ship $shipA &quot; +</span>
+<span class="nc" id="L137">                &quot;to ship $shipB.&quot;</span>
+        )
+<span class="nc" id="L139">        printer.flush()</span>
+<span class="nc" id="L140">    }</span>
+
+    /**
+     * Log start of refueling of a ship.
+     */
+    fun logRefuelStart(corporationId: Int) {
+<span class="fc" id="L146">        printer.println(&quot;Corporation Action: Corporation $corporationId is starting to refuel.&quot;)</span>
+<span class="fc" id="L147">        printer.flush()</span>
+<span class="fc" id="L148">    }</span>
+
+    /**
+     * Log start of refueling of a ship from the station.
+     * @param shipId ShipID of ship to be refueled
+     * @param harborId HarborID of the station
+     * @param success whether the refueling was successful
+     * @param cost the cost of refueling
+     * @param refuelingShip if the ship wants to refuel its own refueling capacity, doesn't matter in case of failure
+     * @return Unit
+     */
+    fun logRefuelingFromStationStarted(
+        shipId: Int,
+        harborId: Int,
+        success: Boolean,
+        cost: Int?,
+        refuelingShip: Boolean
+    ) {
+<span class="nc bnc" id="L166" title="All 4 branches missed.">        if (success &amp;&amp; refuelingShip) {</span>
+<span class="nc" id="L167">            printer.println(</span>
+<span class="nc" id="L168">                &quot;Refueling: Ship $shipId starts to fill &quot; +</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">                    &quot;its refuel capacity at harbor $harborId and paid ${cost ?: &quot;&quot;} credits.&quot;</span>
+            )
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        } else if (success) {</span>
+<span class="nc" id="L172">            printer.println(</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">                &quot;Refueling: Ship $shipId starts to refuel at harbor $harborId and paid ${cost ?: &quot;&quot;} credits.&quot;</span>
+            )
+        } else {
+<span class="nc" id="L176">            printer.println(&quot;Refueling: Ship $shipId cannot refuel at harbor $harborId.&quot;)</span>
+        }
+<span class="nc" id="L178">        printer.flush()</span>
+<span class="nc" id="L179">    }</span>
+
+    /**
+     * Logs when the refueling has been done
+     * @param shipID Ship ID of the ship
+     * @param harborID Harbor ID from where the ship is being refueled
+     * @return Unit
+     * */
+    fun logRefuelingDone(shipID: Int, harborID: Int) {
+<span class="nc" id="L188">        printer.println(&quot;Refueling: Ship $shipID refueled at harbor $harborID.&quot;)</span>
+<span class="nc" id="L189">        printer.flush()</span>
+<span class="nc" id="L190">    }</span>
+
+    /**
+     * Logs the refueling of ship from other ship
+     * @param shipID Refueling Ship ID
+     * @param otherShipID Ship ID of the ship to be refueled
+     * @param started true if the refueling started, false for completion
+     * */
+    fun logRefuelFromShip(shipID: Int, otherShipID: Int, started: Boolean) {
+<span class="pc bpc" id="L199" title="1 of 2 branches missed.">        if (started) {</span>
+<span class="fc" id="L200">            printer.println(&quot;Refueling: Ship $shipID started to refuel ship $otherShipID.&quot;)</span>
+        } else {
+<span class="nc" id="L202">            printer.println(&quot;Refueling: Ship $shipID finished refueling ship $otherShipID.&quot;)</span>
+        }
+<span class="fc" id="L204">        printer.flush()</span>
+<span class="fc" id="L205">    }</span>
+
+    /**
+     * Log unloading of garbage from a ship.
+     */
+    fun logUnload(shipId: Int, amount: Int, garbageType: GarbageType, harborId: Int, returnAmount: Int) {
+<span class="nc" id="L211">        printer.println(</span>
+<span class="nc" id="L212">            &quot;Unload: Ship $shipId unloaded $amount of garbage &quot; +</span>
+<span class="nc" id="L213">                &quot;$garbageType at harbor $harborId and received $returnAmount credits.&quot;</span>
+        )
+<span class="nc" id="L215">        printer.flush()</span>
+<span class="nc" id="L216">    }</span>
+
+    /**
+     * Log the repairing of ship.
+     * @param shipID Ship ID of the ship
+     * @param harborID Harbor ID of the Shipyard Station
+     * @param amount Repairing Cost
+     * @param started true if started, false otherwise
+     * @return Unit
+     * */
+    fun logRepair(shipID: Int, harborID: Int?, amount: Int?, started: Boolean) {
+<span class="fc bfc" id="L227" title="All 2 branches covered.">        if (started) {</span>
+<span class="fc" id="L228">            printer.println(</span>
+<span class="pc bpc" id="L229" title="2 of 4 branches missed.">                &quot;Repair: Ship $shipID is being repaired at harbor ${harborID ?: &quot;&quot;} for ${amount ?: &quot;&quot;} credits.&quot;</span>
+            )
+        } else {
+<span class="fc" id="L232">            printer.println(&quot;Repair: Ship $shipID is repaired.&quot;)</span>
+        }
+<span class="fc" id="L234">        printer.flush()</span>
+<span class="fc" id="L235">    }</span>
+
+    /**
+     * Logs the purchase of the refueling ship
+     * @param shipID ShipID that places the order
+     * @param refuelShipID ShipID of the new ordered ship
+     * @param harborID HarborID of the station
+     * @param amount Cost of the ship
+     * @param corpID CorporationID of the corporation that ordered the ship
+     * @param tileID TileID where the ship will be spawned
+     * @param started True if purchased, false if delivered
+     * @return Unit
+     * */
+    fun logShipPurchase(
+        shipID: Int,
+        refuelShipID: Int,
+        harborID: Int,
+        amount: Int,
+        corpID: Int,
+        tileID: Int,
+        started: Boolean,
+    ) {
+<span class="fc bfc" id="L257" title="All 2 branches covered.">        if (started) {</span>
+<span class="fc" id="L258">            printer.println(</span>
+<span class="fc" id="L259">                &quot;Purchase: Ship $shipID ordered a &quot; +</span>
+<span class="fc" id="L260">                    &quot;refueling ship with id $refuelShipID at harbor $harborID for $amount credits.&quot;</span>
+            )
+        } else {
+<span class="fc" id="L263">            printer.println(&quot;Purchase: Ship $refuelShipID delivered to corporation $corpID at $tileID.&quot;)</span>
+        }
+<span class="fc" id="L265">        printer.flush()</span>
+<span class="fc" id="L266">    }</span>
+
+    /**
+     * Log end of corporation action for that tick.
+     */
+    fun logFinishAction(corporationId: Int) {
+<span class="fc" id="L272">        printer.println(&quot;Corporation Action: Corporation $corporationId finished its actions.&quot;)</span>
+<span class="fc" id="L273">        printer.flush()</span>
+<span class="fc" id="L274">    }</span>
+
+    /**
+     * Log garbage drifting from currents.
+     */
+    fun logGarbageDrift(
+        garbageType: GarbageType,
+        garbageId: Int,
+        amount: Int,
+        startTileId: Int,
+        endTileId: Int
+    ) {
+<span class="fc" id="L286">        printer.println(</span>
+<span class="fc" id="L287">            &quot;Current Drift: $garbageType $garbageId with amount $amount drifted from tile &quot; +</span>
+<span class="fc" id="L288">                &quot;$startTileId to tile $endTileId.&quot;</span>
+        )
+<span class="fc" id="L290">        printer.flush()</span>
+<span class="fc" id="L291">    }</span>
+
+    /**
+     * Log ship drifting from currents.
+     */
+    fun logShipDrift(shipId: Int, startTileId: Int, endTileId: Int) {
+<span class="fc" id="L297">        printer.println(&quot;Current Drift: Ship $shipId drifted from tile $startTileId to tile $endTileId.&quot;)</span>
+<span class="fc" id="L298">        printer.flush()</span>
+<span class="fc" id="L299">    }</span>
+
+    /**
+     * Log event trigger.
+     */
+    fun logEvent(eventId: Int, eventType: String) {
+<span class="fc" id="L305">        printer.println(&quot;Event: Event $eventId of type $eventType happened.&quot;)</span>
+<span class="fc" id="L306">        printer.flush()</span>
+<span class="fc" id="L307">    }</span>
+
+    /**
+     * Log task assignment.
+     */
+    fun logTask(taskId: Int, taskType: TaskType, shipId: Int, destinationId: Int) {
+<span class="fc" id="L313">        printer.println(</span>
+<span class="fc" id="L314">            &quot;Task: Task $taskId of type $taskType with ship $shipId is added with destination &quot; +</span>
+<span class="fc" id="L315">                &quot;$destinationId.&quot;</span>
+        )
+<span class="fc" id="L317">        printer.flush()</span>
+<span class="fc" id="L318">    }</span>
+
+    /**
+     * Log reward distribution.
+     */
+    fun logReward(taskId: Int, shipId: Int, reward: RewardType) {
+<span class="nc" id="L324">        printer.println(&quot;Reward: Task $taskId: Ship $shipId received reward of type $reward.&quot;)</span>
+<span class="nc" id="L325">        printer.flush()</span>
+<span class="nc" id="L326">    }</span>
+
+    /**
+     * Log end of simulation.
+     */
+    fun logSimEnd() {
+<span class="fc" id="L332">        printer.println(&quot;Simulation Info: Simulation ended.&quot;)</span>
+<span class="fc" id="L333">        printer.flush()</span>
+<span class="fc" id="L334">    }</span>
+
+    /**
+     * Log statistics.
+     */
+    fun logStatistics(leftoverGarbage: Int) {
+<span class="fc" id="L340">        printer.println(&quot;Simulation Info: Simulation statistics are calculated.&quot;)</span>
+<span class="fc" id="L341">        printer.flush()</span>
+<span class="fc bfc" id="L342" title="All 2 branches covered.">        for (corporationId in collectedGarbage.keys.sorted()) {</span>
+<span class="fc" id="L343">            printer.println(</span>
+<span class="fc" id="L344">                &quot;Simulation Statistics: Corporation $corporationId &quot; +</span>
+<span class="fc" id="L345">                    &quot;collected ${collectedGarbage.getValue(corporationId)} of garbage.&quot;</span>
+            )
+<span class="fc" id="L347">            printer.flush()</span>
+        }
+<span class="fc" id="L349">        printer.flush()</span>
+<span class="fc" id="L350">        printer.println(&quot;Simulation Statistics: Total amount of plastic collected: $plastic.&quot;)</span>
+<span class="fc" id="L351">        printer.flush()</span>
+<span class="fc" id="L352">        printer.println(&quot;Simulation Statistics: Total amount of oil collected: $oil.&quot;)</span>
+<span class="fc" id="L353">        printer.flush()</span>
+<span class="fc" id="L354">        printer.println(&quot;Simulation Statistics: Total amount of chemicals collected: $chemical.&quot;)</span>
+<span class="fc" id="L355">        printer.flush()</span>
+<span class="fc" id="L356">        printer.println(&quot;Simulation Statistics: Total amount of garbage still in the ocean: $leftoverGarbage.&quot;)</span>
+<span class="fc" id="L357">        printer.flush()</span>
+<span class="fc" id="L358">    }</span>
+
+    // Some other additional methods
+    /**
+     * Log Refueling Ship refuels other ship
+     * */
+    fun logRefuelingOtherShips(refuelShipID: Int, otherShipID: Int, completed: Boolean) {
+<span class="nc bnc" id="L365" title="All 2 branches missed.">        if (completed) {</span>
+<span class="nc" id="L366">            printer.println(&quot;Refueling: Ship $refuelShipID started to refuel ship $otherShipID.&quot;)</span>
+<span class="nc" id="L367">            printer.flush()</span>
+        } else {
+<span class="nc" id="L369">            printer.println(&quot;Refueling: Ship $refuelShipID finished refueling ship $otherShipID.&quot;)</span>
+<span class="nc" id="L370">            printer.flush()</span>
+        }
+<span class="nc" id="L372">    }</span>
+
+    /**
+     * Logs the damage by Typhoon
+     * */
+    fun logTyphoonDamage(eventID: Int, tileID: Int, radius: Int, shipIDs: List&lt;Int&gt;) {
+<span class="fc" id="L378">        val shipIdsString = shipIDs.joinToString(&quot;, &quot;)</span>
+<span class="fc" id="L379">        printer.println(&quot;Event: Typhoon $eventID at tile $tileID with radius $radius affected ships: $shipIdsString.&quot;)</span>
+<span class="fc" id="L380">        printer.flush()</span>
+<span class="fc" id="L381">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

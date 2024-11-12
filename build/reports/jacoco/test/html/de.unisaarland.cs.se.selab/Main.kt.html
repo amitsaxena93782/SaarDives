@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Main.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab</a> &gt; <span class="el_source">Main.kt</span></div><h1>Main.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab
+
+import de.unisaarland.cs.se.selab.control.Simulation
+import de.unisaarland.cs.se.selab.parser.Parser
+import kotlin.system.exitProcess
+
+/**
+ * Main class
+ */
+fun main(args: Array&lt;String&gt;) {
+<span class="nc" id="L11">    lateinit var map: String</span>
+<span class="nc" id="L12">    lateinit var corporations: String</span>
+<span class="nc" id="L13">    lateinit var scenario: String</span>
+
+<span class="nc" id="L15">    var ticks: Int? = null</span>
+
+<span class="nc bnc" id="L17" title="All 2 branches missed.">    if (&quot;--help&quot; in args) {</span>
+<span class="nc" id="L18">        help()</span>
+    }
+
+<span class="nc bnc" id="L21" title="All 2 branches missed.">    val pa = args.filter { it != &quot;--help&quot; }.zipWithNext()</span>
+<span class="nc bnc" id="L22" title="All 2 branches missed.">    for (pair in pa) {</span>
+<span class="nc bnc" id="L23" title="All 6 branches missed.">        when (pair.first) {</span>
+<span class="nc" id="L24">            &quot;--map&quot; -&gt; map = pair.second</span>
+<span class="nc" id="L25">            &quot;--corporations&quot; -&gt; corporations = pair.second</span>
+<span class="nc" id="L26">            &quot;--scenario&quot; -&gt; scenario = pair.second</span>
+<span class="nc" id="L27">            &quot;--max_ticks&quot; -&gt; ticks = pair.second.toInt()</span>
+<span class="nc" id="L28">            &quot;--out&quot; -&gt; Logger.setFilePath(pair.second)</span>
+<span class="nc" id="L29">            else -&gt; continue</span>
+        }
+    }
+    // Building again
+<span class="nc bnc" id="L33" title="All 6 branches missed.">    if (map == &quot;&quot; || corporations == &quot;&quot; || scenario == &quot;&quot;) {</span>
+<span class="nc" id="L34">        exitProcess(1)</span>
+    }
+<span class="nc bnc" id="L36" title="All 2 branches missed.">    simulation(map, corporations, scenario, ticks ?: 0)</span>
+<span class="nc" id="L37">}</span>
+
+/**
+ * Help!
+ */
+private fun help() {
+<span class="nc" id="L43">    Logger.printer.println(&quot;HELP!!!&quot;)</span>
+<span class="nc" id="L44">    return</span>
+}
+
+/**
+ * parse the map, corporations, and scenario, and start the simulation.
+ */
+private fun simulation(map: String, corporations: String, scenario: String, ticks: Int) {
+<span class="nc" id="L51">    val parser = Parser()</span>
+<span class="nc" id="L52">    val simulationDataRes = parser.parse(listOf(map, corporations, scenario))</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">    if (simulationDataRes.isFailure) {</span>
+<span class="nc" id="L54">        return</span>
+    }
+<span class="nc" id="L56">    val simulationData = simulationDataRes.getOrThrow()</span>
+<span class="nc" id="L57">    Simulation(simulationData, ticks)</span>
+<span class="nc" id="L58">}</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

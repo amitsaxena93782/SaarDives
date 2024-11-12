@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DriftHandler.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.control</a> &gt; <span class="el_source">DriftHandler.kt</span></div><h1>DriftHandler.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.control
+
+import de.unisaarland.cs.se.selab.Constants
+import de.unisaarland.cs.se.selab.Logger
+import de.unisaarland.cs.se.selab.data.Current
+import de.unisaarland.cs.se.selab.data.Garbage
+import de.unisaarland.cs.se.selab.data.OceanMap
+import de.unisaarland.cs.se.selab.data.Ship
+import de.unisaarland.cs.se.selab.data.Tile
+
+/**
+ * DriftHandler class handles the drift of garbage and ships
+ */
+<span class="fc" id="L14">class DriftHandler(private val oceanMap: OceanMap) {</span>
+<span class="fc" id="L15">    private val sortedCurrentTiles = oceanMap.tiles.values</span>
+<span class="fc bfc" id="L16" title="All 2 branches covered.">        .filter { it.current != null }</span>
+<span class="fc" id="L17">        .sortedBy { it.id }</span>
+
+    /**
+     * Drift garbage
+     */
+    fun driftGarbage() {
+<span class="fc" id="L23">        val driftedGarbage = mutableSetOf&lt;Garbage&gt;()</span>
+<span class="fc bfc" id="L24" title="All 2 branches covered.">        for (tile in sortedCurrentTiles) {</span>
+<span class="fc" id="L25">            val current = tile.current</span>
+<span class="pc bpc" id="L26" title="1 of 2 branches missed.">            if (current != null) driftGarbageOnTile(tile, current, driftedGarbage)</span>
+        }
+<span class="fc" id="L28">    }</span>
+
+    /**
+     * Drift garbage on a tile
+     */
+    private fun driftGarbageOnTile(tile: Tile, current: Current, driftedGarbage: MutableSet&lt;Garbage&gt;) {
+<span class="pc bpc" id="L34" title="1 of 2 branches missed.">        oceanMap.getNeighbour(tile, current.direction) ?: return</span>
+<span class="fc" id="L35">        var intensityForGarbage = current.intensity * Constants.GARBAGE_PER_INTENSITY</span>
+<span class="fc bfc" id="L36" title="All 4 branches covered.">        for (garbage in oceanMap.getGarbageOnTile(tile).filter { it !in driftedGarbage }) {</span>
+<span class="fc bfc" id="L37" title="All 2 branches covered.">            if (intensityForGarbage &gt;= garbage.amount) {</span>
+<span class="fc" id="L38">                intensityForGarbage -= garbage.amount</span>
+<span class="fc" id="L39">                driftAndLogGarbage(garbage, tile, current, false)</span>
+<span class="fc" id="L40">                driftedGarbage.add(garbage)</span>
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">            } else if (intensityForGarbage &gt; 0) {</span>
+<span class="fc" id="L42">                val splitGarbage = Garbage(</span>
+<span class="fc" id="L43">                    oceanMap.getMaxGarbageId() + 1,</span>
+<span class="fc" id="L44">                    garbage.type,</span>
+<span class="fc" id="L45">                    intensityForGarbage</span>
+                )
+<span class="fc" id="L47">                garbage.amount -= intensityForGarbage</span>
+<span class="fc" id="L48">                intensityForGarbage = 0</span>
+<span class="fc" id="L49">                driftAndLogGarbage(splitGarbage, tile, current, true)</span>
+<span class="fc" id="L50">                driftedGarbage.add(splitGarbage)</span>
+            }
+        }
+<span class="fc" id="L53">    }</span>
+
+    /**
+     * Drifts garbage and log it
+     */
+    private fun driftAndLogGarbage(garbage: Garbage, tile: Tile, current: Current, isNewGarbage: Boolean) {
+<span class="fc" id="L59">        DriftingUtil.driftGarbage(oceanMap, garbage, tile, current.direction, current.speed)</span>
+<span class="fc" id="L60">        val endTile = oceanMap.getGarbageTile(garbage)</span>
+<span class="pc bpc" id="L61" title="1 of 4 branches missed.">        if (isNewGarbage || tile != endTile) {</span>
+<span class="fc" id="L62">            Logger.logGarbageDrift(</span>
+<span class="fc" id="L63">                garbage.type,</span>
+<span class="fc" id="L64">                garbage.id,</span>
+<span class="fc" id="L65">                garbage.amount,</span>
+<span class="fc" id="L66">                tile.id,</span>
+<span class="fc" id="L67">                endTile.id</span>
+            )
+        }
+<span class="fc" id="L70">    }</span>
+
+    /**
+     * Drift ships
+     */
+    fun driftShips() {
+<span class="fc" id="L76">        val driftedShips = mutableSetOf&lt;Ship&gt;()</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        for (tile in sortedCurrentTiles) {</span>
+<span class="fc" id="L78">            val current = tile.current</span>
+<span class="pc bpc" id="L79" title="1 of 2 branches missed.">            if (current != null) driftShipsOnTile(tile, current, driftedShips)</span>
+        }
+<span class="fc" id="L81">    }</span>
+
+    /**
+     * Drift ships on a tile
+     */
+    private fun driftShipsOnTile(tile: Tile, current: Current, driftedShips: MutableSet&lt;Ship&gt;) {
+<span class="fc" id="L87">        val shipsToDrift = oceanMap.getShipsOnTile(tile)</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">            .filter { it !in driftedShips }</span>
+<span class="fc" id="L89">            .take(current.intensity)</span>
+<span class="fc bfc" id="L90" title="All 2 branches covered.">        for (ship in shipsToDrift) {</span>
+<span class="fc" id="L91">            val candidateDriftTiles = DriftingUtil.getCandidateDriftTiles(</span>
+<span class="fc" id="L92">                oceanMap,</span>
+<span class="fc" id="L93">                tile,</span>
+<span class="fc" id="L94">                current.direction,</span>
+<span class="fc" id="L95">                current.speed</span>
+            )
+<span class="fc" id="L97">            val endTile = candidateDriftTiles.first()</span>
+<span class="fc" id="L98">            driftedShips.add(ship)</span>
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">            if (tile != endTile) {</span>
+<span class="fc" id="L100">                oceanMap.moveShip(ship, endTile)</span>
+<span class="fc" id="L101">                Logger.logShipDrift(ship.id, tile.id, endTile.id)</span>
+            }
+        }
+<span class="fc" id="L104">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

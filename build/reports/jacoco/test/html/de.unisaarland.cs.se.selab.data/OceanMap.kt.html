@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OceanMap.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.data</a> &gt; <span class="el_source">OceanMap.kt</span></div><h1>OceanMap.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.data
+
+import de.unisaarland.cs.se.selab.enums.Direction
+import java.util.*
+
+/**
+ * Ocean map
+ */
+<span class="fc" id="L9">data class OceanMap(</span>
+<span class="fc" id="L10">    val tiles: MutableMap&lt;Coordinate, Tile&gt;</span>
+) {
+<span class="fc" id="L12">    val tileToGarbage = mutableMapOf&lt;Tile, SortedSet&lt;Garbage&gt;&gt;()</span>
+<span class="fc" id="L13">    val garbageToTile = mutableMapOf&lt;Garbage, Tile&gt;()</span>
+
+<span class="fc" id="L15">    val tileToShip = mutableMapOf&lt;Tile, SortedSet&lt;Ship&gt;&gt;()</span>
+<span class="fc" id="L16">    val shipToTile = mutableMapOf&lt;Ship, Tile&gt;()</span>
+
+    private var maxGarbageId = 0
+
+    /**
+     * Get tile by id
+     */
+    fun getTileByID(id: Int): Result&lt;Tile&gt; {
+<span class="pc bpc" id="L24" title="1 of 2 branches missed.">        for ((_, tile) in tiles) {</span>
+<span class="fc bfc" id="L25" title="All 2 branches covered.">            if (tile.id == id) {</span>
+<span class="fc" id="L26">                return Result.success(tile)</span>
+            }
+        }
+<span class="nc" id="L29">        return Result.failure(Exception(&quot;Could not find tile with id $id&quot;))</span>
+    }
+
+    /**
+     * Get tiles in radius
+     */
+    fun getTilesInRadius(tile: Tile, radius: Int): List&lt;Tile&gt; {
+<span class="fc" id="L36">        val tilesInRadius = tile.coordinate</span>
+<span class="fc" id="L37">            .getNeighbours(radius)</span>
+<span class="fc" id="L38">            .mapNotNull { tiles[it] }</span>
+<span class="fc" id="L39">        return tilesInRadius</span>
+    }
+
+    /**
+     * Get neighbouring tiles
+     */
+    fun getNeighbouringTiles(tile: Tile): List&lt;Tile&gt; {
+<span class="fc" id="L46">        return getTilesInRadius(tile, 1)</span>
+    }
+
+    /**
+     * Get neighbour
+     */
+    fun getNeighbour(tile: Tile, direction: Direction): Tile? {
+<span class="fc" id="L53">        val neighbourCoordinate = tile.coordinate.getNeighbourCoordinate(direction)</span>
+<span class="fc" id="L54">        return tiles[neighbourCoordinate]</span>
+    }
+
+    /**
+     * Get ship tile
+     */
+    fun getShipTile(ship: Ship): Tile {
+<span class="fc" id="L61">        return shipToTile.getValue(ship)</span>
+    }
+
+    /**
+     * Get ships on tile
+     */
+    fun getShipsOnTile(tile: Tile): Collection&lt;Ship&gt; {
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        return tileToShip[tile].orEmpty()</span>
+    }
+
+    /**
+     * Move ship
+     */
+    fun moveShip(ship: Ship, destination: Tile) {
+<span class="fc" id="L75">        removeShip(ship)</span>
+<span class="fc" id="L76">        addShip(ship, destination)</span>
+<span class="fc" id="L77">    }</span>
+
+    /**
+     * Add ship
+     */
+    fun addShip(ship: Ship, tile: Tile) {
+<span class="fc" id="L83">        tileToShip.getOrPut(tile) { sortedSetOf() }.add(ship)</span>
+<span class="fc" id="L84">        shipToTile[ship] = tile</span>
+<span class="fc" id="L85">    }</span>
+
+    /**
+     * Remove ship
+     */
+    fun removeShip(ship: Ship) {
+<span class="fc" id="L91">        val shipsOnTile = tileToShip.getValue(getShipTile(ship))</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        if (shipsOnTile.size &gt; 1) {</span>
+<span class="fc" id="L93">            shipsOnTile.remove(ship)</span>
+        } else {
+<span class="fc" id="L95">            tileToShip.remove(getShipTile(ship))</span>
+        }
+<span class="fc" id="L97">        shipToTile.remove(ship)</span>
+<span class="fc" id="L98">    }</span>
+
+    /**
+     * Get garbage tile
+     */
+    fun getGarbageTile(garbage: Garbage): Tile {
+<span class="fc" id="L104">        return garbageToTile.getValue(garbage)</span>
+    }
+
+    /**
+     * Get garbage on tile
+     */
+    fun getGarbageOnTile(tile: Tile): Collection&lt;Garbage&gt; {
+<span class="fc bfc" id="L111" title="All 2 branches covered.">        return tileToGarbage[tile].orEmpty()</span>
+    }
+
+    /**
+     * Move garbage
+     */
+    fun moveGarbage(garbage: Garbage, destination: Tile) {
+<span class="fc" id="L118">        removeGarbage(garbage)</span>
+<span class="fc" id="L119">        addGarbage(garbage, destination)</span>
+<span class="fc" id="L120">    }</span>
+
+    /**
+     * Add garbage
+     */
+    fun addGarbage(garbage: Garbage, tile: Tile) {
+<span class="fc" id="L126">        tileToGarbage.getOrPut(tile) { sortedSetOf() }.add(garbage)</span>
+<span class="fc" id="L127">        garbageToTile[garbage] = tile</span>
+<span class="fc bfc" id="L128" title="All 2 branches covered.">        if (garbage.id &gt; maxGarbageId) {</span>
+<span class="fc" id="L129">            maxGarbageId = garbage.id</span>
+        }
+<span class="fc" id="L131">    }</span>
+
+    /**
+     * Remove garbage
+     */
+    fun removeGarbage(garbage: Garbage) {
+<span class="fc bfc" id="L137" title="All 2 branches covered.">        if (garbage !in garbageToTile) return</span>
+<span class="fc" id="L138">        val garbageOnTile = tileToGarbage.getValue(getGarbageTile(garbage))</span>
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">        if (garbageOnTile.size &gt; 1) {</span>
+<span class="nc" id="L140">            garbageOnTile.remove(garbage)</span>
+        } else {
+<span class="fc" id="L142">            tileToGarbage.remove(getGarbageTile(garbage))</span>
+        }
+<span class="fc" id="L144">        garbageToTile.remove(garbage)</span>
+<span class="fc" id="L145">    }</span>
+
+    /**
+     * Checks if ship is still on map.
+     */
+    fun getShipExists(ship: Ship): Boolean {
+<span class="fc" id="L151">        return ship in shipToTile</span>
+    }
+
+    /**
+     * Gets the maximum garbage id.
+     */
+    fun getMaxGarbageId(): Int {
+<span class="fc" id="L158">        return maxGarbageId</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

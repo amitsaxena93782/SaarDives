@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MapParser.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.parser</a> &gt; <span class="el_source">MapParser.kt</span></div><h1>MapParser.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.parser
+
+import com.github.erosb.jsonsKema.FormatValidationPolicy
+import com.github.erosb.jsonsKema.JsonParser
+import com.github.erosb.jsonsKema.JsonValue
+import com.github.erosb.jsonsKema.SchemaLoader
+import com.github.erosb.jsonsKema.ValidationFailure
+import com.github.erosb.jsonsKema.Validator
+import com.github.erosb.jsonsKema.ValidatorConfig
+import de.unisaarland.cs.se.selab.Constants
+import de.unisaarland.cs.se.selab.data.Coordinate
+import de.unisaarland.cs.se.selab.data.Current
+import de.unisaarland.cs.se.selab.data.OceanMap
+import de.unisaarland.cs.se.selab.data.Tile
+import de.unisaarland.cs.se.selab.enums.TileType
+import org.json.JSONArray
+import org.json.JSONObject
+
+/**
+ * The MapParser class is responsible for parsing the map from the JSON file.
+ */
+<span class="fc" id="L22">class MapParser(private var simulationData: SimulationData) {</span>
+<span class="fc" id="L23">    private val tilesMap: MutableMap&lt;Int, Tile&gt; = mutableMapOf()</span>
+<span class="fc" id="L24">    private val tileCoordinates: MutableMap&lt;Coordinate, Tile&gt; = mutableMapOf()</span>
+    private lateinit var harborParser: HarborParser
+<span class="fc" id="L26">    private val parsedHarborID = emptyList&lt;Int&gt;()</span>
+
+    /**
+     * Parses the map from the JSON file.
+     */
+    fun parse(jsonString: String): Result&lt;Unit&gt; {
+<span class="fc" id="L32">        val schema = SchemaLoader.forURL(&quot;classpath://schema/map.schema&quot;).load()</span>
+        // Validate the JSON data with the schema
+<span class="fc" id="L34">        val validator = Validator.create(schema, ValidatorConfig(FormatValidationPolicy.ALWAYS))</span>
+<span class="fc" id="L35">        val jsonInstance: JsonValue = JsonParser(jsonString).parse()</span>
+<span class="fc" id="L36">        val failure: ValidationFailure? = validator.validate(jsonInstance)</span>
+<span class="pc bpc" id="L37" title="1 of 2 branches missed.">        if (failure != null) {</span>
+<span class="nc" id="L38">            return Result.failure(ParserException(failure.message))</span>
+        }
+
+<span class="fc" id="L41">        val json = JSONObject(jsonString)</span>
+<span class="fc" id="L42">        val tiles = json.getJSONArray(JsonKeys.TILES)</span>
+<span class="fc" id="L43">        val harborsJSONArray = json.getJSONArray(JsonKeys.HARBORS)</span>
+
+        // Parsing all the tiles
+<span class="pc bpc" id="L46" title="1 of 2 branches missed.">        parseTiles(tiles).onFailure { return Result.failure(it) }</span>
+
+        // Updating the simulationData itself rather than fetching the data from parseTiles()
+        // simulationData.tiles.putAll(tilesMap)
+
+        // Initialising Harbor Parser and parsing harbors
+<span class="fc" id="L52">        harborParser = HarborParser(simulationData)</span>
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">        harborParser.parseHarbors(harborsJSONArray).onFailure { return Result.failure(it) }</span>
+
+        // Cross validation from map to harbor
+<span class="fc" id="L56">        crossValidateMapHarbor()</span>
+
+<span class="fc" id="L58">        simulationData.oceanMap = OceanMap(tileCoordinates)</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        for (harbor in simulationData.harbors.values) {</span>
+<span class="fc" id="L60">            simulationData.tileToHarborMap[harbor.location] = harbor</span>
+        }
+
+<span class="fc" id="L63">        return Result.success(Unit)</span>
+    }
+
+    /**
+     * This helper function cross validates the harbor tiles from [&quot;tiles&quot;] field to [&quot;harbors&quot;] field
+     * @param harborTiles as MutableSet&lt;Tile&gt;
+     * @param harborMap as MutableMap&lt;Int, Harbor&gt;
+     * @return result as success or failure
+     * */
+    private fun crossValidateMapHarbor(): Result&lt;Unit&gt; {
+<span class="fc" id="L73">        simulationData.harborTiles.forEach { tile -&gt;</span>
+<span class="fc" id="L74">            val harbor = simulationData.harbors[tile.harborID]</span>
+<span class="pc bpc" id="L75" title="4 of 8 branches missed.">            if (harbor == null || tile.id != harbor.location || tile.harborID != harbor.id) {</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">                return Result.failure(ParserException(&quot;Harbor ${tile.harborID ?: &quot;&quot;} does not exist&quot;))</span>
+            }
+<span class="fc" id="L78">        }</span>
+<span class="fc" id="L79">        return Result.success(Unit)</span>
+    }
+
+    /**
+     * This helper function parses all the tiles and update the data in simulationData
+     * @param tiles as JSONArray
+     * @return Result&lt;Unit&gt;
+     * */
+    private fun parseTiles(tiles: JSONArray): Result&lt;Unit&gt; {
+<span class="fc" id="L88">        tiles.forEach { tile -&gt;</span>
+<span class="pc bpc" id="L89" title="1 of 2 branches missed.">            if (tile is JSONObject) {</span>
+<span class="pc bpc" id="L90" title="1 of 2 branches missed.">                val tileObject = validateAndCreateTiles(tile).getOrElse { return Result.failure(it) }</span>
+                // check if the tile id is already present
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">                if (tileObject.id in this.tilesMap.keys) {</span>
+<span class="nc" id="L93">                    return Result.failure(ParserException(&quot;Tile with id ${tileObject.id} already exists.&quot;))</span>
+                }
+<span class="fc" id="L95">                tileCoordinates[tileObject.coordinate] = tileObject // add the tile to the coordinates map</span>
+<span class="fc" id="L96">                tilesMap[tileObject.id] = tileObject // adding the data to the tilesMap</span>
+                // simulationData is being updated automatically
+<span class="fc" id="L98">                simulationData.tiles[tileObject.id] = tileObject</span>
+            } else {
+<span class="nc" id="L100">                return Result.failure(ParserException(&quot;Tile is not a JSONObject.&quot;))</span>
+            }
+<span class="fc" id="L102">        }</span>
+        // validate neighbours of the tiles in the map
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">        if (!validateAdjacentTiles()) {</span>
+<span class="nc" id="L105">            return Result.failure(ParserException(&quot;Invalid neighbors in the map.&quot;))</span>
+        }
+
+        // add harbors to the simulation data
+<span class="fc bfc" id="L109" title="All 2 branches covered.">        for (t in tilesMap.values) {</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">            if (t.harbor) {</span>
+<span class="fc" id="L111">                simulationData.harborTiles.add(t)</span>
+            }
+        }
+
+<span class="fc" id="L115">        return Result.success(Unit)</span>
+    }
+
+    /**
+     * This helper method validates and parse each tile
+     * @param tile as JSONObject
+     * @return Result&lt;Tile&gt;
+     * */
+    private fun validateAndCreateTiles(tile: JSONObject): Result&lt;Tile&gt; {
+        // check if the keys are valid
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">        if (!validateKeySet(tile)) {</span>
+<span class="nc" id="L126">            return Result.failure(ParserException(&quot;Invalid keys in tile $tile.&quot;))</span>
+        }
+
+        // validate and instantiate coordinates if they are valid
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">        if (!validateCoordinates(tile.getJSONObject(JsonKeys.COORDINATES))) {</span>
+<span class="nc" id="L131">            return Result.failure(ParserException(&quot;Invalid coordinates in tile $tile.&quot;))</span>
+        }
+<span class="fc" id="L133">        val coordinate =</span>
+<span class="fc" id="L134">            Coordinate(</span>
+<span class="fc" id="L135">                tile.getJSONObject(JsonKeys.COORDINATES).getInt(JsonKeys.X),</span>
+<span class="fc" id="L136">                tile.getJSONObject(JsonKeys.COORDINATES).getInt(JsonKeys.Y)</span>
+            )
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">        if (coordinate in tileCoordinates.keys) {</span>
+<span class="nc" id="L139">            return Result.failure(ParserException(&quot;Coordinate $coordinate already exists.&quot;))</span>
+        }
+
+<span class="fc" id="L142">        val type = tile.getString(JsonKeys.CATEGORY)</span>
+        // get the drift of the tile
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">        val (harbor, drift) = validateSpecialTiles(tile).getOrElse { return Result.failure(it) }</span>
+
+        // Getting the harbor ID
+<span class="fc bfc" id="L147" title="All 2 branches covered.">        val harborID = if (harbor) {</span>
+<span class="fc" id="L148">            val id = tile.getInt(JsonKeys.HARBOR_ID)</span>
+<span class="pc bpc" id="L149" title="2 of 4 branches missed.">            if (id &lt; 0 || id in parsedHarborID) throw ParserException(&quot;Harbor ID must be positive or unique.&quot;)</span>
+<span class="fc" id="L150">            parsedHarborID.plus(id)</span>
+<span class="fc" id="L151">            id</span>
+        } else {
+<span class="fc" id="L153">            null</span>
+        }
+        // create tile
+<span class="fc" id="L156">        return Result.success(</span>
+<span class="fc" id="L157">            Tile(</span>
+<span class="fc" id="L158">                tile.getInt(JsonKeys.ID),</span>
+<span class="fc" id="L159">                TileType.createTileType(type),</span>
+<span class="fc" id="L160">                drift,</span>
+<span class="fc" id="L161">                coordinate,</span>
+<span class="fc" id="L162">                harbor,</span>
+<span class="fc" id="L163">                harborID</span>
+            )
+        )
+    }
+
+    /**
+     * Validate the JSON key set of the tile.
+     */
+    private fun validateKeySet(tile: JSONObject): Boolean {
+<span class="pc bpc" id="L172" title="1 of 2 branches missed.">        if (!tile.keySet().contains(JsonKeys.CATEGORY)) {</span>
+<span class="nc" id="L173">            return false</span>
+        }
+<span class="pc bpc" id="L175" title="2 of 6 branches missed.">        val allowedKeys = when (tile.getString(JsonKeys.CATEGORY)) {</span>
+            JsonKeys.LAND, JsonKeys.SHALLOW_OCEAN -&gt; {
+<span class="fc" id="L177">                setOf(</span>
+<span class="fc" id="L178">                    JsonKeys.ID,</span>
+<span class="fc" id="L179">                    JsonKeys.COORDINATES,</span>
+<span class="fc" id="L180">                    JsonKeys.CATEGORY</span>
+                )
+            }
+
+            JsonKeys.SHORE -&gt; {
+<span class="fc bfc" id="L185" title="All 2 branches covered.">                if (tile.getBoolean(JsonKeys.HARBOR)) {</span>
+<span class="fc" id="L186">                    setOf(</span>
+<span class="fc" id="L187">                        JsonKeys.ID,</span>
+<span class="fc" id="L188">                        JsonKeys.COORDINATES,</span>
+<span class="fc" id="L189">                        JsonKeys.CATEGORY,</span>
+<span class="fc" id="L190">                        JsonKeys.HARBOR,</span>
+<span class="fc" id="L191">                        JsonKeys.HARBOR_ID</span>
+                    )
+                } else {
+<span class="fc" id="L194">                    setOf(</span>
+<span class="fc" id="L195">                        JsonKeys.ID,</span>
+<span class="fc" id="L196">                        JsonKeys.COORDINATES,</span>
+<span class="fc" id="L197">                        JsonKeys.CATEGORY,</span>
+<span class="fc" id="L198">                        JsonKeys.HARBOR</span>
+                    )
+                }
+            }
+
+            JsonKeys.DEEP_OCEAN -&gt; {
+<span class="pc bpc" id="L204" title="1 of 2 branches missed.">                if (tile.getBoolean(JsonKeys.CURRENT)) {</span>
+<span class="fc" id="L205">                    setOf(</span>
+<span class="fc" id="L206">                        JsonKeys.ID,</span>
+<span class="fc" id="L207">                        JsonKeys.COORDINATES,</span>
+<span class="fc" id="L208">                        JsonKeys.DIRECTION,</span>
+<span class="fc" id="L209">                        JsonKeys.SPEED,</span>
+<span class="fc" id="L210">                        JsonKeys.INTENSITY,</span>
+<span class="fc" id="L211">                        JsonKeys.CURRENT,</span>
+<span class="fc" id="L212">                        JsonKeys.CATEGORY</span>
+                    )
+                } else {
+<span class="nc" id="L215">                    setOf(</span>
+<span class="nc" id="L216">                        JsonKeys.ID,</span>
+<span class="nc" id="L217">                        JsonKeys.COORDINATES,</span>
+<span class="nc" id="L218">                        JsonKeys.CURRENT,</span>
+<span class="nc" id="L219">                        JsonKeys.CATEGORY</span>
+                    )
+                }
+            }
+
+<span class="nc" id="L224">            else -&gt; { return false }</span>
+        }
+<span class="fc" id="L226">        return tile.keySet() == allowedKeys</span>
+    }
+
+    /**
+     * Validate compatibility of adjacent tiles.
+     */
+    private fun validateAdjacentTiles(): Boolean {
+        // go through the coordinates that we collected &amp; check if the neighbours are valid
+<span class="fc bfc" id="L234" title="All 2 branches covered.">        for ((c, t) in tileCoordinates) {</span>
+<span class="fc" id="L235">            val neighborsCoord = c.getNeighbours()</span>
+<span class="fc" id="L236">            val neighborsTiles = neighborsCoord.mapNotNull { tileCoordinates[it] }</span>
+<span class="pc bpc" id="L237" title="1 of 2 branches missed.">            if (!isCompatibleType(t.type, neighborsTiles)) {</span>
+<span class="nc" id="L238">                return false</span>
+            }
+        }
+<span class="fc" id="L241">        return true</span>
+    }
+
+    /**
+     * Check if tile type is compatible with other tile types.
+     */
+    private fun isCompatibleType(type: TileType, neighbors: List&lt;Tile&gt;): Boolean {
+<span class="fc bfc" id="L248" title="All 4 branches covered.">        return when (type) {</span>
+<span class="pc bpc" id="L249" title="1 of 4 branches missed.">            TileType.LAND -&gt; { neighbors.all { it.type == TileType.LAND || it.type == TileType.SHORE } }</span>
+            TileType.SHORE -&gt; {
+<span class="fc" id="L251">                neighbors.all {</span>
+<span class="fc bfc" id="L252" title="All 4 branches covered.">                    it.type == TileType.LAND || it.type == TileType.SHORE ||</span>
+<span class="pc bpc" id="L253" title="1 of 2 branches missed.">                        it.type == TileType.SHALLOW_OCEAN</span>
+                }
+            }
+            TileType.SHALLOW_OCEAN -&gt; {
+<span class="fc" id="L257">                neighbors.all {</span>
+<span class="fc bfc" id="L258" title="All 4 branches covered.">                    it.type == TileType.SHORE || it.type == TileType.SHALLOW_OCEAN ||</span>
+<span class="pc bpc" id="L259" title="1 of 2 branches missed.">                        it.type == TileType.DEEP_OCEAN</span>
+                }
+            }
+            TileType.DEEP_OCEAN -&gt; {
+<span class="pc bpc" id="L263" title="1 of 4 branches missed.">                neighbors.all { it.type == TileType.SHALLOW_OCEAN || it.type == TileType.DEEP_OCEAN }</span>
+            }
+        }
+    }
+
+    /**
+     * Validate the JSON key set coordinates.
+     */
+    private fun validateCoordinates(coordinates: JSONObject): Boolean {
+<span class="fc" id="L272">        return coordinates.keySet() == setOf(JsonKeys.X, JsonKeys.Y)</span>
+    }
+
+    /**
+     * Validate tiles with special properties (Deep Ocean with current or Shore with harbor)
+     * @param tile the JSON object of the tile
+     * @return true if the keys are valid, false otherwise
+     */
+    private fun validateSpecialTiles(tile: JSONObject): Result&lt;Pair&lt;Boolean, Current?&gt;&gt; {
+<span class="fc" id="L281">        var drift: Current? = null</span>
+<span class="fc" id="L282">        var harbor = false</span>
+<span class="fc" id="L283">        val type = tile.getString(JsonKeys.CATEGORY)</span>
+
+        // get the drift of the tile
+<span class="pc bpc" id="L286" title="1 of 4 branches missed.">        if (type == JsonKeys.DEEP_OCEAN &amp;&amp; tile.getBoolean(JsonKeys.CURRENT)) {</span>
+<span class="pc bpc" id="L287" title="1 of 2 branches missed.">            val direction = if (tile.get(JsonKeys.DIRECTION) is Int) {</span>
+<span class="fc" id="L288">                tile.getInt(JsonKeys.DIRECTION)</span>
+            } else {
+<span class="nc" id="L290">                return Result.failure(ParserException(&quot;Invalid direction.&quot;))</span>
+            }
+<span class="fc" id="L292">            try {</span>
+<span class="fc" id="L293">                drift = Current(direction, tile.getInt(JsonKeys.SPEED), tile.getInt(JsonKeys.INTENSITY))</span>
+<span class="nc" id="L294">            } catch (_: IllegalArgumentException) {</span>
+<span class="nc" id="L295">                return Result.failure(ParserException(&quot;Invalid direction.&quot;))</span>
+            }
+            if (
+<span class="pc bpc" id="L298" title="3 of 6 branches missed.">                drift.speed !in Constants.MIN_DRIFT_SPEED..Constants.MAX_DRIFT_SPEED ||</span>
+<span class="pc bpc" id="L299" title="3 of 6 branches missed.">                drift.intensity !in Constants.MIN_DRIFT_INTENSITY..Constants.MAX_DRIFT_INTENSITY</span>
+            ) {
+<span class="nc" id="L301">                return Result.failure(ParserException(&quot;Invalid current speed/intensity values in tile $tile.&quot;))</span>
+            }
+<span class="fc bfc" id="L303" title="All 4 branches covered.">        } else if (type == JsonKeys.SHORE &amp;&amp; tile.getBoolean(JsonKeys.HARBOR)) {</span>
+<span class="fc" id="L304">            harbor = tile.getBoolean(JsonKeys.HARBOR)</span>
+        }
+<span class="fc" id="L306">        return Result.success(Pair(harbor, drift))</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

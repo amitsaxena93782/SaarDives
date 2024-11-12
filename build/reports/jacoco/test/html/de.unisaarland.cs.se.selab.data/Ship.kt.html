@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Ship.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.data</a> &gt; <span class="el_source">Ship.kt</span></div><h1>Ship.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.data
+
+import de.unisaarland.cs.se.selab.Constants
+import de.unisaarland.cs.se.selab.enums.Behaviour
+import de.unisaarland.cs.se.selab.enums.GarbageType
+import de.unisaarland.cs.se.selab.enums.RewardType
+import de.unisaarland.cs.se.selab.enums.ShipType
+import de.unisaarland.cs.se.selab.task.Task
+import kotlin.math.min
+
+/**
+ * The Ship class
+ */
+<span class="fc" id="L14">class Ship(</span>
+<span class="fc" id="L15">    val id: Int,</span>
+<span class="fc" id="L16">    val type: ShipType,</span>
+<span class="fc" id="L17">    val corporation: Corporation,</span>
+<span class="fc" id="L18">    var maxVelocity: Int,</span>
+<span class="fc" id="L19">    var acceleration: Int,</span>
+<span class="fc" id="L20">    val maxFuel: Int,</span>
+<span class="fc" id="L21">    var fuelConsumption: Int,</span>
+<span class="pc" id="L22">    var visibilityRange: Int,</span>
+<span class="fc" id="L23">    val maxGarbageCapacity: MutableMap&lt;GarbageType, Int&gt;</span>
+) : Comparable&lt;Ship&gt; {
+    // val fuelConsumptionPerTile = fuelConsumption * Constants.TILE_DISTANCE
+<span class="fc" id="L26">    var velocity = 0</span>
+<span class="fc" id="L27">    val reward = mutableListOf&lt;RewardType&gt;() // Changed this field to var for damaging</span>
+<span class="fc" id="L28">    var fuel = maxFuel</span>
+<span class="fc" id="L29">    var task: Task? = null</span>
+<span class="fc" id="L30">    var behaviour = Behaviour.DEFAULT</span>
+<span class="fc" id="L31">    val garbageCapacity = maxGarbageCapacity.toMutableMap()</span>
+<span class="pc" id="L32">    var waitingAtHarbor = false</span>
+
+    // Some additional Props for normal ships
+<span class="pc" id="L35">    var refuelingFromShip = false</span>
+<span class="fc" id="L36">    var refuelWaitingTime = -1</span>
+<span class="fc" id="L37">    var refuelingShip: Ship? = null // Now contains the ship to be refueled</span>
+<span class="fc" id="L38">    var refueledBy: Ship? = null // Contains the which from which it'S being refueled</span>
+<span class="fc" id="L39">    var goingToPurchase = false</span>
+<span class="fc" id="L40">    var refuelingFromStation = false // Will act as a switch for logging</span>
+<span class="fc" id="L41">    var targetedShip: Ship? = null // Ship which is being targeted to refuel</span>
+<span class="nc" id="L42">    var targetedBy: Ship? = null</span>
+<span class="nc" id="L43">    var refuelingOwnCap = false</span>
+<span class="fc" id="L44">    var refuelOtherStarted = false</span>
+
+    // var repairingStarted = false not required
+<span class="fc" id="L47">    var purchasingStarted = false</span>
+<span class="fc" id="L48">    var targetHarbor: Harbor? = null // Stores the target harbor</span>
+<span class="fc" id="L49">    var isDamaged: Boolean = false</span>
+<span class="fc" id="L50">    var orginalAccel: Int? = null</span>
+<span class="fc" id="L51">    var originalMaxVel: Int? = null</span>
+<span class="fc" id="L52">    var usedVisibilityRange: Int = visibilityRange</span>
+
+    // Some additional attributes for Refueling Ship
+<span class="pc" id="L55">    var refuelCap = 0</span>
+<span class="fc" id="L56">    var refuelTim = 0</span>
+<span class="pc" id="L57">    var serviceAvailable = true</span>
+<span class="nc" id="L58">    var refuelRefuelCap = false</span>
+<span class="fc" id="L59">    var refuelFuel = 0</span>
+
+    /**
+     * Accelerates the ship and increases its current velocity
+     */
+    fun accelerate() {
+<span class="fc" id="L65">        velocity = min(velocity + acceleration, maxVelocity)</span>
+<span class="fc" id="L66">    }</span>
+
+    /**
+     * Checks if ship can attach tracker
+     */
+    fun canAttachTracker(): Boolean {
+<span class="pc bpc" id="L72" title="3 of 4 branches missed.">        return RewardType.TRACKER in reward &amp;&amp; !isRefueling()</span>
+    }
+
+    /**
+     * Checks if ship can collect garbage
+     */
+    fun canCollect(): Boolean {
+<span class="pc bpc" id="L79" title="2 of 4 branches missed.">        return garbageCapacity.any { it.value &gt; 0 } &amp;&amp; !isRefueling()</span>
+    }
+
+    /**
+     * Checks if the ship can cooperate with another ship.
+     */
+    fun canCooperateWith(otherShip: Ship): Boolean {
+<span class="pc bpc" id="L86" title="1 of 4 branches missed.">        val canCooperate = type == ShipType.COORDINATING || reward.contains(RewardType.RADIO)</span>
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">        val fromDifferentCorporation = otherShip.corporation != this.corporation</span>
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">        val notLastCooperatedWith = otherShip.corporation != this.corporation.lastCooperated</span>
+<span class="pc bpc" id="L89" title="3 of 6 branches missed.">        return canCooperate &amp;&amp; fromDifferentCorporation &amp;&amp; notLastCooperatedWith &amp;&amp;</span>
+<span class="pc bnc" id="L90" title="All 4 branches missed.">            !refuelingFromStation &amp;&amp; refueledBy == null</span>
+    }
+
+    /**
+     * Returns if the ship is refueling during this tick
+     */
+    fun isRefueling(): Boolean {
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">        return behaviour == Behaviour.REFUELING</span>
+    }
+
+    /**
+     * Returns if the ship is unloading during this tick
+     */
+    fun isUnloading(): Boolean {
+<span class="pc bpc" id="L104" title="1 of 4 branches missed.">        return waitingAtHarbor &amp;&amp; behaviour == Behaviour.UNLOADING</span>
+    }
+
+    /**
+     * Returns if the ship is repairing during this tick
+     */
+    fun isRepairing(): Boolean {
+<span class="fc bfc" id="L111" title="All 2 branches covered.">        return behaviour == Behaviour.DAMAGED</span>
+    }
+
+    /**
+     * Returns if the ship is ready to purchase during this tick
+     */
+    fun isPurchasing(): Boolean {
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        return behaviour == Behaviour.PURCHASING</span>
+    }
+
+    /**
+     * Number of tiles reachable with current velocity
+     */
+<span class="fc" id="L124">    fun getDistanceWithVelocity(velocity: Int = this.velocity): Int {</span>
+<span class="fc" id="L125">        return velocity / Constants.TILE_DISTANCE</span>
+    }
+
+    /**
+     * Number of tiles reachable with current fuel
+     */
+<span class="fc" id="L131">    fun getDistanceWithFuel(fuel: Int = this.fuel): Int {</span>
+<span class="fc" id="L132">        return fuel / (fuelConsumption * Constants.TILE_DISTANCE)</span>
+    }
+
+    override fun compareTo(other: Ship): Int {
+<span class="fc" id="L136">        return id.compareTo(other.id)</span>
+    }
+
+    /**
+     * Sent by the Refueling Ship to check whether it can refuels the given ship.
+     * If yes, it couples itself with it.
+     * @param ship which needs refueling
+     * @return true if the ship can be refueled, false otherwise
+     * */
+    fun canRefuelShip(ship: Ship): Boolean {
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">        if (refuelFuel &gt;= ship.maxFuel) {</span>
+            // ship.targetedBy = this // No need to target now
+<span class="fc" id="L148">            targetedShip = ship</span>
+            // ship.corporation.refuelingOtherShips[this] = ship // might be needed
+<span class="fc" id="L150">            return true</span>
+        }
+<span class="nc" id="L152">        refuelingOwnCap = true</span>
+<span class="nc" id="L153">        behaviour = Behaviour.REFUELING</span>
+<span class="nc" id="L154">        return false</span>
+    }
+
+    /**
+     * Refueling Ship completes the refueling of the other ship
+     * after the waiting time has been passed
+     * @return Unit
+     * */
+    fun completeRequest() {
+        // First reducing the refueling fuel from the refueling ship
+<span class="nc bnc" id="L164" title="All 2 branches missed.">        refuelingShip?.let {</span>
+<span class="nc" id="L165">            refuelFuel -= it.maxFuel</span>
+<span class="nc" id="L166">            it.fuel = it.maxFuel</span>
+<span class="nc" id="L167">            behaviour = Behaviour.DEFAULT</span>
+<span class="nc" id="L168">            it.behaviour = Behaviour.DEFAULT</span>
+<span class="nc" id="L169">        }</span>
+        // Finally decoupling it from the refueling ship
+<span class="nc" id="L171">        decoupleShips()</span>
+<span class="nc" id="L172">    }</span>
+
+    /**
+     * Decouples the ships in case of any ship drift or any events
+     * @return Unit
+     * */
+    fun decoupleShips() {
+<span class="fc bfc" id="L179" title="All 2 branches covered.">        if (refueledBy != null) {</span>
+<span class="pc bpc" id="L180" title="2 of 4 branches missed.">            refueledBy?.refuelingShip?.targetedShip = null</span>
+<span class="pc bpc" id="L181" title="1 of 2 branches missed.">            refueledBy?.refuelingShip = null</span>
+<span class="fc" id="L182">            refueledBy = null</span>
+        } else {
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">            refuelingShip?.refueledBy = null</span>
+<span class="pc bpc" id="L185" title="2 of 4 branches missed.">            refuelingShip?.refueledBy?.targetedBy = null</span>
+<span class="fc" id="L186">            refuelingShip = null</span>
+<span class="fc" id="L187">            targetedShip = null</span>
+        }
+<span class="fc" id="L189">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

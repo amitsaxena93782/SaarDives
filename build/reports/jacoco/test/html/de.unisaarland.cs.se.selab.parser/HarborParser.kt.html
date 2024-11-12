@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HarborParser.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.parser</a> &gt; <span class="el_source">HarborParser.kt</span></div><h1>HarborParser.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.parser
+
+import de.unisaarland.cs.se.selab.Constants
+import de.unisaarland.cs.se.selab.data.Harbor
+import de.unisaarland.cs.se.selab.data.RefuelingStation
+import de.unisaarland.cs.se.selab.data.ShipProp
+import de.unisaarland.cs.se.selab.data.ShipyardStation
+import de.unisaarland.cs.se.selab.data.UnloadingStation
+import de.unisaarland.cs.se.selab.enums.GarbageType
+import org.json.JSONArray
+import org.json.JSONObject
+
+/**
+ * This class is reponsible for parsing the complete harbors
+ * @constructor HarborParser(val simulationData: SimulationData)
+ * @return HarborParser
+ * */
+<span class="pc" id="L18">class HarborParser(val simulationData: SimulationData) {</span>
+
+<span class="fc" id="L20">    private val parsedIDs: List&lt;Int&gt; = emptyList()</span>
+<span class="fc" id="L21">    private val parsedLocations: List&lt;Int&gt; = emptyList()</span>
+
+    /**
+     * This main method parses the harbor JSON Array completely
+     * @param JSONArray
+     * @return MutableMap&lt;Int, Harbor&gt;
+     * */
+    public fun parseHarbors(harborsJSONArray: JSONArray): Result&lt;Unit&gt; {
+<span class="fc" id="L29">        harborsJSONArray.forEach { harborJSON -&gt;</span>
+<span class="pc bpc" id="L30" title="1 of 2 branches missed.">            if (harborJSON is JSONObject) {</span>
+<span class="pc bpc" id="L31" title="1 of 2 branches missed.">                val harborObject = validateAndCreateHarbor(harborJSON).getOrElse { return Result.failure(it) }</span>
+
+<span class="fc" id="L33">                simulationData.harbors[harborObject.id] = harborObject // updating the simulation data</span>
+<span class="fc" id="L34">                parsedIDs.plus(harborObject.id) // add the id to the parsedIDs</span>
+<span class="fc" id="L35">                parsedLocations.plus(harborObject.location) // add the location to the parsed Locations</span>
+            } else {
+<span class="nc" id="L37">                return Result.failure(ParserException(&quot;Harbor is not a JSONObject.&quot;))</span>
+            }
+<span class="fc" id="L39">        }</span>
+<span class="fc" id="L40">        return Result.success(Unit)</span>
+    }
+
+    /**
+     * This helper function validates and create each harbor
+     * @param harbor as JSONObject
+     * @return Result&lt;Harbor&gt;
+     * */
+    private fun validateAndCreateHarbor(harbor: JSONObject): Result&lt;Harbor&gt; {
+<span class="fc" id="L49">        try {</span>
+<span class="fc" id="L50">            val id = harbor.getInt(JsonKeys.ID)</span>
+            // check if the id is unique
+<span class="pc bpc" id="L52" title="3 of 6 branches missed.">            require(id !in parsedIDs &amp;&amp; id &gt;= 0) {</span>
+<span class="nc" id="L53">                &quot;Invalid or duplicate id in Harbor $id.&quot;</span>
+            }
+
+<span class="fc" id="L56">            val location = harbor.getInt(JsonKeys.LOCATION)</span>
+            // check if the location isn't duplicate
+<span class="pc bpc" id="L58" title="3 of 6 branches missed.">            require(location !in parsedLocations &amp;&amp; location &gt;= 0) {</span>
+<span class="nc" id="L59">                &quot;Duplicate or invalid locations of Harbor $id at Location $location.&quot;</span>
+            }
+
+            // Checking if the harbor is actually present on that location
+<span class="pc bpc" id="L63" title="4 of 8 branches missed.">            require(simulationData.tiles.get(location)?.harborID == id) {</span>
+<span class="nc" id="L64">                &quot;Harbor $id actually not present on that location!&quot;</span>
+            }
+
+<span class="fc" id="L67">            val corporationsJSONArray = harbor.getJSONArray(JsonKeys.CORPORATIONS)</span>
+
+            // Check that there should be at least one corp associated to the harbor
+<span class="pc bpc" id="L70" title="3 of 6 branches missed.">            require(corporationsJSONArray != null &amp;&amp; !corporationsJSONArray.isEmpty) {</span>
+<span class="nc" id="L71">                &quot;Harbor $id without a corp associated to it&quot;</span>
+            }
+
+            // Convert Corporation JSONArray to Array&lt;Int&gt;
+<span class="fc bfc" id="L75" title="All 2 branches covered.">            val corporationsIDArray = IntArray(corporationsJSONArray.length()) { i -&gt;</span>
+<span class="fc" id="L76">                corporationsJSONArray.getInt(i)</span>
+            }
+
+            // Validating and creating stations
+<span class="fc" id="L80">            val shipyardStation = validateAndCreateShipyardStation(</span>
+<span class="fc" id="L81">                harbor.optJSONObject(JsonKeys.SHIPYARD_STATION)</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">            )?.getOrThrow()</span>
+<span class="fc" id="L83">            val refuelingStation = validatesAndCreateRefuelingStation(</span>
+<span class="fc" id="L84">                harbor.optJSONObject(JsonKeys.REFUEL_STATION)</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">            )?.getOrThrow()</span>
+<span class="fc" id="L86">            val unloadingStation = validatesAndCreateUnloadingStation(</span>
+<span class="fc" id="L87">                harbor.optJSONObject(JsonKeys.UNLOAD_STATION)</span>
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">            )?.getOrThrow()</span>
+
+            // Ensure at most 2 stations and they are of different types
+<span class="fc" id="L91">            val stations = listOfNotNull(shipyardStation, refuelingStation, unloadingStation)</span>
+<span class="pc bpc" id="L92" title="3 of 6 branches missed.">            require(stations.size in Constants.MIN_STATIONS..Constants.MAX_STATIONS) {</span>
+<span class="nc" id="L93">                &quot;Harbor $id has more than 2 stations.&quot;</span>
+            }
+
+            // Check that stations are of different types
+<span class="fc" id="L97">            val stationTypes = stations.map { it::class }.toSet()</span>
+<span class="pc bpc" id="L98" title="2 of 4 branches missed.">            require(stationTypes.size == stations.size) {</span>
+<span class="nc" id="L99">                &quot;Harbor $id has multiple stations of the same type.&quot;</span>
+            }
+
+<span class="fc" id="L102">            return Result.success(</span>
+<span class="fc" id="L103">                Harbor(</span>
+<span class="fc" id="L104">                    id,</span>
+<span class="fc" id="L105">                    location,</span>
+<span class="fc" id="L106">                    corporationsIDArray,</span>
+<span class="fc" id="L107">                    shipyardStation,</span>
+<span class="fc" id="L108">                    refuelingStation,</span>
+<span class="fc" id="L109">                    unloadingStation</span>
+                )
+            )
+<span class="nc" id="L112">        } catch (e: IllegalArgumentException) {</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">            return Result.failure(ParserException(e.message ?: &quot;Unknown error occurred in validateAndCreateHarbor.&quot;))</span>
+        }
+    }
+
+    /**
+     * This helper function validates and creates the Shipyard Station
+     * @param station as JSONObject
+     * @return Result&lt;ShipyardStation&gt;
+     * */
+    private fun validateAndCreateShipyardStation(station: JSONObject?): Result&lt;ShipyardStation&gt;? {
+<span class="fc bfc" id="L123" title="All 2 branches covered.">        if (station == null) return null</span>
+<span class="fc" id="L124">        val repairCost = station.getInt(JsonKeys.REPAIR_COST)</span>
+<span class="fc" id="L125">        val shipCost = station.getInt(JsonKeys.SHIP_COST)</span>
+<span class="fc" id="L126">        val deliveryTime = station.getInt(JsonKeys.DELIVERY_TIME)</span>
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">        val shipProp = validateAndCreateShipProp(station.getJSONObject(JsonKeys.SHIP_PROP)).getOrElse {</span>
+<span class="nc" id="L128">            return Result.failure(it)</span>
+        }
+
+<span class="fc" id="L131">        try {</span>
+<span class="pc bpc" id="L132" title="3 of 6 branches missed.">            require(repairCost in Constants.MIN_REPAIR_COST..Constants.MAX_REPAIR_COST) {</span>
+<span class="nc" id="L133">                &quot;Invalid Repair cost of Shipyard Station&quot;</span>
+            }
+<span class="pc bpc" id="L135" title="3 of 6 branches missed.">            require(shipCost in Constants.MIN_SHIP_COST..Constants.MAX_SHIP_COST) {</span>
+<span class="nc" id="L136">                &quot;Invalid Refueling Ship cost of Shipyard Station&quot;</span>
+            }
+<span class="pc bpc" id="L138" title="3 of 6 branches missed.">            require(deliveryTime in Constants.MIN_DELIVERY_TIME..Constants.MAX_DELIVERY_TIME) {</span>
+<span class="nc" id="L139">                &quot;Invalid Delivery Time of Refueling Ship cost of Shipyard Station&quot;</span>
+            }
+
+<span class="fc" id="L142">            return Result.success(</span>
+<span class="fc" id="L143">                ShipyardStation(repairCost, shipCost, deliveryTime, shipProp)</span>
+            )
+<span class="nc" id="L145">        } catch (e: IllegalArgumentException) {</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">            return Result.failure(ParserException(e.message ?: &quot;Unknown error occurred&quot;))</span>
+        }
+    }
+
+    /**
+     * This helper function validates and creates Refueling Station
+     * @param station as JSONObject
+     * @return Result&lt;RefuelingStation&gt;
+     * */
+    private fun validatesAndCreateRefuelingStation(station: JSONObject?): Result&lt;RefuelingStation&gt;? {
+<span class="fc bfc" id="L156" title="All 2 branches covered.">        if (station == null) return null</span>
+<span class="fc" id="L157">        val refuelCost = station.getInt(JsonKeys.REFUEL_COST)</span>
+<span class="fc" id="L158">        val refuelTimes = station.getInt(JsonKeys.REFUEL_TIMES)</span>
+
+<span class="pc bpc" id="L160" title="2 of 4 branches missed.">        if (refuelCost &lt; Constants.MIN_REFUEL_COST || refuelCost &gt; Constants.MAX_REFUEL_COST) {</span>
+<span class="nc" id="L161">            return Result.failure(</span>
+<span class="nc" id="L162">                ParserException(&quot;Invalid Refuel cost of the station $station&quot;)</span>
+            )
+        }
+<span class="pc bpc" id="L165" title="2 of 4 branches missed.">        if (refuelTimes &lt; Constants.MIN_REFUEL_TIMES || refuelTimes &gt; Constants.MAX_REFUEL_TIMES) {</span>
+<span class="nc" id="L166">            return Result.failure(</span>
+<span class="nc" id="L167">                ParserException(&quot;Invalid Refuel times of the station $station&quot;)</span>
+            )
+        }
+
+<span class="fc" id="L171">        return Result.success(</span>
+<span class="fc" id="L172">            RefuelingStation(refuelCost, refuelTimes)</span>
+        )
+    }
+
+    /**
+     * This helper function validates and create Unloading Station
+     * @param station as JSONObject
+     * @return Result&lt;UnloadingStation&gt;
+     **/
+    private fun validatesAndCreateUnloadingStation(station: JSONObject?): Result&lt;UnloadingStation&gt;? {
+<span class="pc bpc" id="L182" title="1 of 2 branches missed.">        if (station == null) return null</span>
+<span class="fc" id="L183">        val unloadReturn = station.getInt(JsonKeys.UNLOAD_RETURN)</span>
+<span class="fc" id="L184">        val garbagesTypesJSON = station.getJSONArray(JsonKeys.GARBAGE_TYPES)</span>
+<span class="fc" id="L185">        val garbagesTypes = garbagesTypesJSON.map { GarbageType.valueOf(it.toString()) }</span>
+
+<span class="fc" id="L187">        val allowedGarbages = listOf(GarbageType.PLASTIC, GarbageType.OIL, GarbageType.CHEMICALS)</span>
+
+<span class="pc bpc" id="L189" title="1 of 2 branches missed.">        if (garbagesTypes.toSet().size != garbagesTypes.size) {</span>
+<span class="nc" id="L190">            return Result.failure(ParserException(&quot;GarbageType contains duplicates&quot;))</span>
+        }
+
+<span class="fc bfc" id="L193" title="All 2 branches covered.">        for (garbage in garbagesTypes) {</span>
+<span class="pc bpc" id="L194" title="1 of 2 branches missed.">            if (garbage !in allowedGarbages) return Result.failure(ParserException(&quot;Invalid Garbage $garbage&quot;))</span>
+        }
+
+<span class="pc bpc" id="L197" title="2 of 4 branches missed.">        if (unloadReturn &lt; Constants.MIN_UNLOAD_RETURN || unloadReturn &gt; Constants.MAX_UNLOAD_RETURN) {</span>
+<span class="nc" id="L198">            return Result.failure(</span>
+<span class="nc" id="L199">                ParserException(&quot;Invalid Unload return of the station $station&quot;)</span>
+            )
+        }
+
+<span class="fc" id="L203">        return Result.success(</span>
+<span class="fc" id="L204">            UnloadingStation(unloadReturn, garbagesTypes)</span>
+        )
+    }
+
+    /**
+     * This helper function validates and creates Refueling Ship Properties
+     * @param refuelingShip as JSONObject
+     * @return Result&lt;ShipProp&gt;
+     * */
+    private fun validateAndCreateShipProp(refuelShipJSON: JSONObject): Result&lt;ShipProp&gt; {
+        // First checking if the JSON File is empty?
+<span class="pc bpc" id="L215" title="1 of 2 branches missed.">        if (refuelShipJSON.isEmpty) return Result.failure(ParserException(&quot;Ship Prop JSON file is empty!&quot;))</span>
+
+        // Then extracting all the data from the JSON File
+<span class="fc" id="L218">        val maxVel = refuelShipJSON.getInt(JsonKeys.MAX_VELOCITY)</span>
+<span class="fc" id="L219">        val acceleration = refuelShipJSON.getInt(JsonKeys.ACCELERATION)</span>
+<span class="fc" id="L220">        val fuelCap = refuelShipJSON.getInt(JsonKeys.FUEL_CAPACITY)</span>
+<span class="fc" id="L221">        val fuelConsum = refuelShipJSON.getInt(JsonKeys.FUEL_CONSUMPTION)</span>
+<span class="fc" id="L222">        val refuelCap = refuelShipJSON.getInt(JsonKeys.REFUEL_CAPACITY)</span>
+<span class="fc" id="L223">        val refuelTime = refuelShipJSON.getInt(JsonKeys.REFUEL_TIME)</span>
+
+        // Now comes the validation part of the properties
+<span class="pc bpc" id="L226" title="1 of 2 branches missed.">        validateShipProp(maxVel, acceleration, fuelCap, fuelConsum, refuelCap, refuelTime).onFailure {</span>
+<span class="pc" id="L227">            return Result.failure(it)</span>
+        }
+
+<span class="fc" id="L230">        return Result.success(</span>
+<span class="fc" id="L231">            ShipProp(</span>
+<span class="fc" id="L232">                maxVel,</span>
+<span class="fc" id="L233">                acceleration,</span>
+<span class="fc" id="L234">                fuelCap,</span>
+<span class="fc" id="L235">                fuelConsum,</span>
+<span class="fc" id="L236">                refuelCap,</span>
+<span class="fc" id="L237">                refuelTime</span>
+            )
+        )
+    }
+
+    /**
+     * This helper function validates the Refueling Ship Properties
+     * @param maxVelocity as Int
+     * @param acceleration as Int
+     * @param fuelCapacity as Int
+     * @param fuelConsumption as Int
+     * @param refuelCapacity as Int
+     * @param refuelTime as Int
+     * @return Result&lt;Unit&gt;
+     * */
+    private fun validateShipProp(
+        maxVelocity: Int,
+        acceleration: Int,
+        fuelCapacity: Int,
+        fuelConsumption: Int,
+        refuelCapacity: Int,
+        refuelTime: Int
+    ): Result&lt;Unit&gt; {
+<span class="fc" id="L260">        try {</span>
+<span class="pc bpc" id="L261" title="1 of 2 branches missed.">            require(</span>
+<span class="pc bpc" id="L262" title="1 of 2 branches missed.">                maxVelocity &gt;= Constants.MIN_REFUEL_SHIP_VELOCITY &amp;&amp;</span>
+<span class="pc bpc" id="L263" title="1 of 2 branches missed.">                    maxVelocity &lt;= Constants.MAX_REFUEL_SHIP_VELOCITY</span>
+            ) {
+<span class="nc" id="L265">                &quot;Invalid Max velocity for the refueling ship&quot;</span>
+            }
+<span class="pc bpc" id="L267" title="1 of 2 branches missed.">            require(</span>
+<span class="pc bpc" id="L268" title="1 of 2 branches missed.">                acceleration &gt;= Constants.MIN_REFUEL_SHIP_ACCELERATION &amp;&amp;</span>
+<span class="pc bpc" id="L269" title="1 of 2 branches missed.">                    acceleration &lt;= Constants.MAX_REFUEL_SHIP_ACCELERATION</span>
+            ) {
+<span class="nc" id="L271">                &quot;Invalid Acceleration for the refueling ship&quot;</span>
+            }
+<span class="pc bpc" id="L273" title="1 of 2 branches missed.">            require(</span>
+<span class="pc bpc" id="L274" title="1 of 2 branches missed.">                fuelCapacity &gt;= Constants.MIN_REFUEL_SHIP_FUEL_CAP &amp;&amp;</span>
+<span class="pc bpc" id="L275" title="1 of 2 branches missed.">                    fuelCapacity &lt;= Constants.MAX_REFUEL_SHIP_FUEL_CAP</span>
+            ) {
+<span class="nc" id="L277">                &quot;Invalid FuelCapacity for the refueling ship&quot;</span>
+            }
+<span class="pc bpc" id="L279" title="1 of 2 branches missed.">            require(</span>
+<span class="pc bpc" id="L280" title="1 of 2 branches missed.">                fuelConsumption &gt;= Constants.MIN_REFUEL_SHIP_FUEL_CONSUM &amp;&amp;</span>
+<span class="pc bpc" id="L281" title="1 of 2 branches missed.">                    fuelConsumption &lt;= Constants.MAX_REFUEL_SHIP_FUEL_CONSUM</span>
+            ) {
+<span class="nc" id="L283">                &quot;Invalid FuelConsumption for the refueling ship&quot;</span>
+            }
+<span class="pc bpc" id="L285" title="1 of 2 branches missed.">            require(</span>
+<span class="pc bpc" id="L286" title="1 of 2 branches missed.">                refuelCapacity &gt;= Constants.MIN_REFUEL_SHIP_REFUEL_CAP &amp;&amp;</span>
+<span class="pc bpc" id="L287" title="1 of 2 branches missed.">                    refuelCapacity &lt;= Constants.MAX_REFUEL_SHIP_REFUEL_CAP</span>
+            ) {
+<span class="nc" id="L289">                &quot;Invalid Refueling capacity for the refueling ship&quot;</span>
+            }
+<span class="pc bpc" id="L291" title="1 of 2 branches missed.">            require(</span>
+<span class="pc bpc" id="L292" title="1 of 2 branches missed.">                refuelTime &gt;= Constants.MIN_REFUEL_SHIP_REFUEL_TIME &amp;&amp;</span>
+<span class="pc bpc" id="L293" title="1 of 2 branches missed.">                    refuelTime &lt;= Constants.MAX_REFUEL_SHIP_REFUEL_TIME</span>
+            ) {
+<span class="nc" id="L295">                &quot;Invalid Refueling time for the refueling ship&quot;</span>
+            }
+<span class="nc" id="L297">        } catch (e: NumberFormatException) {</span>
+<span class="nc" id="L298">            return Result.failure(</span>
+<span class="nc bnc" id="L299" title="All 2 branches missed.">                ParserException(e.message ?: &quot;Unknown error in parsing the ShipProps of Refueling ship!&quot;)</span>
+            )
+        }
+<span class="fc" id="L302">        return Result.success(Unit)</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

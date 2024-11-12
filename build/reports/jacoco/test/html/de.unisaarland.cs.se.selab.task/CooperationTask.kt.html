@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CooperationTask.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.task</a> &gt; <span class="el_source">CooperationTask.kt</span></div><h1>CooperationTask.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.task
+
+import de.unisaarland.cs.se.selab.data.OceanMap
+import de.unisaarland.cs.se.selab.data.Ship
+import de.unisaarland.cs.se.selab.data.TaskData
+import de.unisaarland.cs.se.selab.enums.TaskType
+
+/**
+ * class for coordinating task
+ */
+<span class="nc" id="L11">class CooperationTask(taskData: TaskData) : Task(taskData) {</span>
+    private var waitingAtHarbor = false
+
+    override fun update(ship: Ship, oceanMap: OceanMap, movementPhase: Boolean) {
+<span class="nc bnc" id="L15" title="All 2 branches missed.">        if (checkLocation(ship, oceanMap)) {</span>
+<span class="nc bnc" id="L16" title="All 2 branches missed.">            if (!waitingAtHarbor) {</span>
+<span class="nc" id="L17">                waitingAtHarbor = true</span>
+            } else {
+<span class="nc" id="L19">                finished = movementPhase</span>
+            }
+        } else {
+<span class="nc" id="L22">            waitingAtHarbor = false</span>
+        }
+<span class="nc" id="L24">    }</span>
+
+    /**
+     * returns the type of the task
+     */
+    override fun getType(): TaskType {
+<span class="nc" id="L30">        return TaskType.COOPERATE</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

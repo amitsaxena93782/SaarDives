@@ -1,0 +1,623 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MovementHandler.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.control</a> &gt; <span class="el_source">MovementHandler.kt</span></div><h1>MovementHandler.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.control
+
+import de.unisaarland.cs.se.selab.Constants
+import de.unisaarland.cs.se.selab.Logger
+import de.unisaarland.cs.se.selab.data.Corporation
+import de.unisaarland.cs.se.selab.data.Garbage
+import de.unisaarland.cs.se.selab.data.Harbor
+import de.unisaarland.cs.se.selab.data.OceanMap
+import de.unisaarland.cs.se.selab.data.Ship
+import de.unisaarland.cs.se.selab.data.Tile
+import de.unisaarland.cs.se.selab.enums.Behaviour
+import de.unisaarland.cs.se.selab.enums.GarbageType
+import de.unisaarland.cs.se.selab.enums.ShipType
+
+/**
+ * Handles the movement logic for ships during the movement phase.
+ * Manages ship behavior, such as when to refuel, default behaviour and escaping restrictions.
+ */
+<span class="fc" id="L19">class MovementHandler(</span>
+<span class="fc" id="L20">    private val pathFinder: PathFinder,</span>
+<span class="fc" id="L21">    private val oceanMap: OceanMap,</span>
+<span class="fc" id="L22">    private val visibilityHandler: VisibilityHandler</span>
+) {
+<span class="fc" id="L24">    private var harbors = emptyMap&lt;Int, Harbor&gt;()</span>
+
+    /**
+     * Handles the movement phase for the given corporation.
+     */
+    fun movementPhase(corporation: Corporation, harbors: MutableMap&lt;Int, Harbor&gt;) {
+<span class="fc" id="L30">        this.harbors = harbors</span>
+<span class="fc" id="L31">        Logger.logStartMove(corporation.id)</span>
+<span class="fc bfc" id="L32" title="All 2 branches covered.">        for (ship in corporation.ships) {</span>
+<span class="fc" id="L33">            val shipTile = oceanMap.getShipTile(ship)</span>
+<span class="fc bfc" id="L34" title="All 2 branches covered.">            if (shipTile in ship.corporation.harbors) {</span>
+<span class="fc" id="L35">                ship.waitingAtHarbor = true</span>
+            }
+
+<span class="fc" id="L38">            ship.accelerate()</span>
+
+            // In case the ship got drifted while refueling, it'll get cancelled
+<span class="fc bfc" id="L41" title="All 2 branches covered.">            ship.refueledBy?.let { refueledByShip -&gt;</span>
+<span class="fc" id="L42">                val refuelShipLoc = oceanMap.getShipTile(refueledByShip).id</span>
+<span class="fc bfc" id="L43" title="All 2 branches covered.">                if (shipTile.id != refuelShipLoc) ship.decoupleShips()</span>
+<span class="fc" id="L44">            }</span>
+
+<span class="fc bfc" id="L46" title="All 2 branches covered.">            ship.refuelingShip?.let { refuelingShip -&gt;</span>
+<span class="fc" id="L47">                val refueledShipLoc = oceanMap.getShipTile(refuelingShip).id</span>
+<span class="pc bpc" id="L48" title="1 of 2 branches missed.">                if (shipTile.id != refueledShipLoc) ship.decoupleShips()</span>
+<span class="fc" id="L49">            }</span>
+
+<span class="fc" id="L51">            moveShip(ship, shipTile)</span>
+
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">            if (ship.behaviour != Behaviour.UNLOADING &amp;&amp;</span>
+<span class="fc bfc" id="L54" title="All 2 branches covered.">                ship.behaviour != Behaviour.DAMAGED &amp;&amp;</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">                ship.behaviour != Behaviour.REFUELING</span>
+            ) {
+<span class="fc" id="L57">                ship.waitingAtHarbor = false</span>
+            }
+
+<span class="fc bfc" id="L60" title="All 2 branches covered.">            if (ship.purchasingStarted) {</span>
+<span class="fc" id="L61">                ship.waitingAtHarbor = true</span>
+            }
+
+<span class="fc bfc" id="L64" title="All 2 branches covered.">            ship.task?.update(ship, oceanMap, movementPhase = true)</span>
+        }
+<span class="fc" id="L66">    }</span>
+
+    /**
+     * Determines the behaviour and moves the ship for this tick.
+     */
+    private fun moveShip(ship: Ship, shipTile: Tile) {
+<span class="fc" id="L72">        val onRestriction = shipTile.restricted</span>
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">        val needsToRefuel = ship.behaviour == Behaviour.REFUELING</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">        val hasTask = ship.task != null</span>
+<span class="pc bpc" id="L75" title="1 of 2 branches missed.">        val needsToUnload = ship.garbageCapacity.any { it.value == 0 }</span>
+<span class="pc bpc" id="L76" title="1 of 4 branches missed.">        val isDamaged = ship.behaviour == Behaviour.DAMAGED || ship.isDamaged</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        val goingToPurchase = ship.behaviour == Behaviour.PURCHASING</span>
+<span class="fc bfc" id="L78" title="All 4 branches covered.">        val busyInRefueling = ship.refuelingShip != null || ship.refueledBy != null</span>
+<span class="fc" id="L79">        val otherRefuelingShips = oceanMap.getShipsOnTile(oceanMap.getShipTile(ship)).any {</span>
+<span class="fc bfc" id="L80" title="All 4 branches covered.">            it.id != ship.id &amp;&amp; it.type == ShipType.REFUELING &amp;&amp;</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">                it.refuelingShip == null</span>
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">        } &amp;&amp; ship.fuel &lt; Constants.HALF * ship.maxFuel</span>
+
+        // In case of emergency, the purchasing decision of coordinating ship gets cancelled
+<span class="pc bpc" id="L85" title="2 of 4 branches missed.">        if (onRestriction || needsToUnload) {</span>
+<span class="nc" id="L86">            cancelPurchase(ship)</span>
+<span class="pc bpc" id="L87" title="1 of 4 branches missed.">        } else if (needsToRefuel || isDamaged) {</span>
+<span class="fc" id="L88">            cancelPurchase(ship)</span>
+        }
+        // Conditions are prioritized top to bottom,
+        // with higher priority cases listed first.
+<span class="fc" id="L92">        when {</span>
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">            onRestriction -&gt; {</span>
+                // If the ship was being repaired, repair would be cancelled
+<span class="nc" id="L95">                ship.corporation.shipsDoneRepairing.remove(ship)</span>
+<span class="nc" id="L96">                ship.corporation.shipsRefuelStationEnded.remove(ship)</span>
+<span class="nc" id="L97">                ship.decoupleShips()</span>
+<span class="nc" id="L98">                escapeRestriction(ship)</span>
+            }
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">            otherRefuelingShips -&gt; {</span>
+<span class="nc" id="L101">                ship.velocity = 0</span>
+<span class="nc" id="L102">                ship.task = null</span>
+<span class="nc" id="L103">                return</span>
+            }
+<span class="fc bfc" id="L105" title="All 2 branches covered.">            busyInRefueling -&gt; {</span>
+<span class="fc" id="L106">                ship.velocity = 0</span>
+<span class="fc" id="L107">                ship.task = null</span>
+<span class="fc" id="L108">                return</span>
+            }
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">            needsToRefuel -&gt; {</span>
+                // If the ship was being repaired, repair would be cancelled
+<span class="nc" id="L112">                ship.corporation.shipsDoneRepairing.remove(ship)</span>
+<span class="nc" id="L113">                ship.task = null</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">                if (!ship.refuelingFromStation) {</span>
+<span class="nc" id="L115">                    moveToRefuel(ship)</span>
+                }
+            }
+<span class="fc bfc" id="L118" title="All 2 branches covered.">            isDamaged -&gt; {</span>
+<span class="fc" id="L119">                ship.behaviour = Behaviour.DAMAGED</span>
+<span class="fc" id="L120">                ship.task = null</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">                if (ship !in ship.corporation.shipsDoneRepairing) {</span>
+<span class="fc" id="L122">                    moveToRepair(ship)</span>
+                }
+            }
+            else -&gt; {
+<span class="fc" id="L126">                move2(ship, hasTask, needsToUnload, goingToPurchase)</span>
+            }
+        }
+<span class="fc" id="L129">    }</span>
+
+    private fun move2(ship: Ship, hasTask: Boolean, needsToUnload: Boolean, goingToPurchase: Boolean) {
+<span class="fc" id="L132">        when {</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">            hasTask -&gt; {</span>
+                // ship.corporation.decidedToPurchase = false // Purchase Decision cancelled
+<span class="fc" id="L135">                ship.refuelingFromStation = false</span>
+<span class="fc" id="L136">                moveToTask(ship)</span>
+            }
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">            needsToUnload -&gt; {</span>
+<span class="nc" id="L139">                moveToUnload(ship)</span>
+            }
+<span class="fc bfc" id="L141" title="All 2 branches covered.">            goingToPurchase -&gt; {</span>
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">                if (!ship.purchasingStarted) {</span>
+<span class="fc" id="L143">                    moveToPurchase(ship)</span>
+                }
+            }
+            else -&gt; {
+<span class="fc" id="L147">                moveShipDefault(ship)</span>
+            }
+        }
+<span class="fc" id="L150">    }</span>
+
+    /**
+     * It cancels the purchase if  the coordinating ship is already going to purchase
+     * @param ship as Ship
+     * @return Unit
+     * */
+    private fun cancelPurchase(ship: Ship) {
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">        if (ship.goingToPurchase) {</span>
+<span class="nc" id="L159">            ship.goingToPurchase = false</span>
+<span class="nc" id="L160">            ship.corporation.decidedToPurchase = false</span>
+        }
+<span class="fc" id="L162">    }</span>
+
+    /**
+     * Moves the ship along the path by determining how far it can travel
+     * and what the intermediate destination would be. Redirects to a harbor if refueling is needed.
+     * Also logs the ship movement and adjusts velocity if the destination is reached or no path is found.
+     */
+    private fun moveAlongPath(ship: Ship, path: List&lt;Tile&gt;) {
+<span class="fc bfc" id="L170" title="All 2 branches covered.">        if (path.isEmpty()) {</span>
+<span class="fc" id="L171">            ship.velocity = 0</span>
+<span class="fc" id="L172">            return</span>
+        }
+        // Determine how far we can go this tick and
+        // what the intermediate destination on our path would be.
+<span class="fc" id="L176">        val distance = minOf(</span>
+<span class="fc" id="L177">            ship.getDistanceWithVelocity(),</span>
+<span class="fc" id="L178">            ship.getDistanceWithFuel(),</span>
+<span class="fc" id="L179">            path.size - 1</span>
+        )
+<span class="fc" id="L181">        val intermediateDestination = path[distance]</span>
+<span class="fc" id="L182">        val fuelConsumed = distance * ship.fuelConsumption * Constants.TILE_DISTANCE</span>
+<span class="fc" id="L183">        val fuelNextTick = ship.fuel - fuelConsumed</span>
+<span class="fc" id="L184">        val reachableDistance = ship.getDistanceWithFuel(fuelNextTick)</span>
+        // If we are not either on the way to refueling or escaping,
+        // then we have to check if we can make it back from the intermediate destination
+        // to the harbor in the next tick and if not we will go refueling instead.
+<span class="fc bfc" id="L188" title="All 2 branches covered.">        val refuelHarbor = harbors.values.filter { it.refuelingStation != null }</span>
+<span class="pc bpc" id="L189" title="2 of 4 branches missed.">        val refuelTiles = refuelHarbor.map { oceanMap.getTileByID(it.location).getOrNull() ?: return }.toSet()</span>
+<span class="pc bpc" id="L190" title="1 of 2 branches missed.">        if (ship.behaviour != Behaviour.REFUELING &amp;&amp;</span>
+<span class="pc bpc" id="L191" title="1 of 2 branches missed.">            ship.behaviour != Behaviour.ESCAPING &amp;&amp;</span>
+<span class="pc bpc" id="L192" title="1 of 2 branches missed.">            !pathFinder.isReachableWithinDistance(</span>
+<span class="fc" id="L193">                intermediateDestination,</span>
+<span class="fc" id="L194">                refuelTiles,</span>
+<span class="fc" id="L195">                reachableDistance</span>
+            )
+        ) {
+<span class="nc" id="L198">            return moveToRefuel(ship)</span>
+        }
+<span class="fc bfc" id="L200" title="All 2 branches covered.">        if (distance &gt; 0) {</span>
+<span class="fc" id="L201">            ship.fuel = fuelNextTick</span>
+<span class="fc" id="L202">            oceanMap.moveShip(ship, intermediateDestination)</span>
+<span class="fc" id="L203">            Logger.logShipMove(ship.id, ship.velocity, intermediateDestination.id)</span>
+        }
+<span class="fc" id="L205">        val reachedDestination = intermediateDestination == path.lastOrNull()</span>
+<span class="fc bfc" id="L206" title="All 4 branches covered.">        if (reachedDestination &amp;&amp; ship.behaviour != Behaviour.EXPLORING) {</span>
+<span class="fc" id="L207">            ship.velocity = 0</span>
+            // Now calculating the cost that needed to be paid
+<span class="fc" id="L209">            val harborID = intermediateDestination.harborID</span>
+<span class="fc" id="L210">            ship.targetHarbor = harbors[harborID]</span>
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">            if (ship.isRefueling()) {</span>
+<span class="nc" id="L212">                ship.corporation.shipsRefuelStationStarted.add(ship)</span>
+<span class="fc bfc" id="L213" title="All 2 branches covered.">            } else if (ship.isRepairing()) {</span>
+<span class="fc" id="L214">                ship.corporation.shipStartedRepairing.add(ship)</span>
+<span class="fc bfc" id="L215" title="All 2 branches covered.">            } else if (ship.isPurchasing()) {</span>
+<span class="fc" id="L216">                ship.purchasingStarted = true</span>
+<span class="fc" id="L217">                ship.corporation.buyingShip = ship</span>
+            }
+            // In case of restriction, the refueling ship might lose it's target
+            // Look again for any ship on the tile
+<span class="fc" id="L221">            refuelingShipBehavior(ship)</span>
+        }
+<span class="fc" id="L223">    }</span>
+
+    private fun refuelingShipBehavior(ship: Ship) {
+<span class="fc bfc" id="L226" title="All 2 branches covered.">        if (ship.targetedShip == null) {</span>
+<span class="fc" id="L227">            val otherShip = ship.corporation.ships.filter {</span>
+<span class="fc bfc" id="L228" title="All 4 branches covered.">                it.id != ship.id &amp;&amp; it.fuel &lt; Constants.HALF * it.maxFuel &amp;&amp;</span>
+<span class="pc bpc" id="L229" title="1 of 2 branches missed.">                    !it.isDamaged</span>
+<span class="pc" id="L230">            }.minByOrNull { it.id }</span>
+<span class="fc bfc" id="L231" title="All 2 branches covered.">            if (otherShip != null) {</span>
+<span class="fc" id="L232">                ship.targetedShip = otherShip</span>
+            }
+        }
+        // Now the refueling ship checks for the target ship
+<span class="fc bfc" id="L236" title="All 2 branches covered.">        ship.targetedShip?.let { targetedShip -&gt;</span>
+<span class="pc bpc" id="L237" title="1 of 2 branches missed.">            if (!targetedShip.refuelingFromStation &amp;&amp;</span>
+<span class="fc bfc" id="L238" title="All 2 branches covered.">                targetedShip.refueledBy == null &amp;&amp;</span>
+<span class="fc bfc" id="L239" title="All 2 branches covered.">                ship.refuelFuel &gt;= targetedShip.maxFuel</span>
+            ) {
+<span class="fc" id="L241">                ship.corporation.shipsRefuelStationStarted.remove(targetedShip)</span>
+<span class="pc bpc" id="L242" title="1 of 2 branches missed.">                if (ship.corporation.buyingShip == targetedShip) {</span>
+<span class="nc" id="L243">                    ship.corporation.buyingShip = null</span>
+<span class="nc" id="L244">                    ship.corporation.decidedToPurchase = false</span>
+                }
+<span class="fc" id="L246">                ship.task = null</span>
+<span class="fc" id="L247">                targetedShip.task = null</span>
+<span class="fc" id="L248">                ship.refuelingShip = targetedShip</span>
+<span class="fc" id="L249">                targetedShip.refueledBy = ship</span>
+
+<span class="fc" id="L251">                ship.refuelOtherStarted = true</span>
+<span class="fc" id="L252">                ship.refuelWaitingTime = ship.refuelTim</span>
+            }
+<span class="fc" id="L254">        }</span>
+<span class="fc" id="L255">    }</span>
+
+    /**
+     * Moves the ship to the closest tile without restriction if possible.
+     */
+    private fun escapeRestriction(ship: Ship) {
+<span class="nc" id="L261">        ship.behaviour = Behaviour.ESCAPING</span>
+<span class="nc" id="L262">        val shipTile = oceanMap.getShipTile(ship)</span>
+<span class="nc" id="L263">        val path = pathFinder.escapeRestriction(shipTile)</span>
+<span class="nc" id="L264">        moveAlongPath(ship, path)</span>
+<span class="nc" id="L265">    }</span>
+
+    /**
+     * Moves the ship towards the closest reachable harbour and sets the behaviour to refueling.
+     * If the ship has a task, it immediately fails and is removed from the ship.
+     */
+    private fun moveToRefuel(ship: Ship) {
+<span class="nc" id="L272">        ship.behaviour = Behaviour.REFUELING</span>
+<span class="nc" id="L273">        ship.task = null</span>
+        // If the ship is not already being refueled by refueling ship
+<span class="nc" id="L275">        val shipsTile = oceanMap.getShipsOnTile(oceanMap.getShipTile(ship)).filter {</span>
+<span class="nc bnc" id="L276" title="All 4 branches missed.">            it.id != ship.id &amp;&amp; it.type == ShipType.REFUELING &amp;&amp;</span>
+<span class="nc bnc" id="L277" title="All 4 branches missed.">                it.refuelingShip == null &amp;&amp; it.corporation.id == ship.corporation.id</span>
+        }
+        // Ship won't move if there's a refueling ship on the same tile that can refuel it
+<span class="nc bnc" id="L280" title="All 4 branches missed.">        if (shipsTile.isNotEmpty()) {</span>
+<span class="nc" id="L281">            ship.velocity = 0</span>
+            // task = null
+<span class="nc" id="L283">            return</span>
+        }
+
+<span class="nc bnc" id="L286" title="All 2 branches missed.">        if (ship.refueledBy == null) {</span>
+<span class="nc" id="L287">            moveToRefuelHarbour(ship)</span>
+        }
+<span class="nc" id="L289">    }</span>
+
+    /**
+     * Moves the ship to nearest Shipyard Station for repairing
+     * @param ship as Ship
+     * @return Unit
+     * */
+    private fun moveToRepair(ship: Ship) {
+<span class="fc" id="L297">        val shipTile = oceanMap.getShipTile(ship)</span>
+<span class="fc" id="L298">        val shipyardTiles = harbors.values.filter {</span>
+<span class="fc bfc" id="L299" title="All 2 branches covered.">            it.shipyardStation != null</span>
+<span class="fc" id="L300">        }.map {</span>
+<span class="pc bpc" id="L301" title="2 of 4 branches missed.">            oceanMap.getTileByID(it.location).getOrNull() ?: return</span>
+<span class="fc" id="L302">        }.toSet()</span>
+<span class="fc" id="L303">        ship.task = null</span>
+<span class="fc" id="L304">        val path = pathFinder.getShortestPathToTileStation(shipTile, shipyardTiles)</span>
+<span class="fc" id="L305">        moveAlongPath(ship, path)</span>
+<span class="fc" id="L306">    }</span>
+
+    /**
+     * Moves the ship towards the closest reachable harbour and sets the behaviour to unloading.
+     */
+    private fun moveToUnload(ship: Ship) {
+<span class="nc" id="L312">        ship.behaviour = Behaviour.UNLOADING</span>
+<span class="nc" id="L313">        moveToUnloadHarbour(ship)</span>
+<span class="nc" id="L314">    }</span>
+
+    /**
+     * Moves the ship towards the closest reachable Refueling Station.
+     * @param ship Ship
+     * @return Unit
+     * */
+    private fun moveToRefuelHarbour(ship: Ship) {
+<span class="nc" id="L322">        val shipTile = oceanMap.getShipTile(ship)</span>
+        // Extracting the harbors with refueling station
+<span class="nc" id="L324">        val refuelHarbors = harbors.values.filter {</span>
+<span class="nc bnc" id="L325" title="All 4 branches missed.">            it.refuelingStation != null &amp;&amp; it.refuelingStation.refuelTimes &gt; 0</span>
+        }
+        // Now getting all the tiles from those harbors
+<span class="nc bnc" id="L328" title="All 4 branches missed.">        val refuelTiles = refuelHarbors.map { oceanMap.getTileByID(it.location).getOrNull() ?: return }.toSet()</span>
+<span class="nc" id="L329">        val path = pathFinder.getShortestPathToTileStation(shipTile, refuelTiles)</span>
+        // ship.corporation.harbors not needed
+<span class="nc" id="L331">        moveAlongPath(ship, path)</span>
+<span class="nc" id="L332">    }</span>
+
+    /**
+     * Moves the ship towards the closest reachable Unloading Station.
+     * @param ship Ship
+     * @return Unit
+     */
+    private fun moveToUnloadHarbour(ship: Ship) {
+<span class="nc" id="L340">        val shipTile = oceanMap.getShipTile(ship)</span>
+
+        // Extracting the Corp Harbors with unloading station
+<span class="nc" id="L343">        val unloadHarbors = harbors.values.filter {</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">            it.unloadingStation != null &amp;&amp;</span>
+<span class="nc bnc" id="L345" title="All 2 branches missed.">                it.corporations.contains(ship.corporation.id)</span>
+        }
+
+<span class="nc bnc" id="L348" title="All 4 branches missed.">        val allowedGarbages = unloadHarbors.map { it.unloadingStation?.garbagesType ?: return }.flatten().toSet()</span>
+
+        // Getting the garbage type to be unloaded first
+<span class="nc bnc" id="L351" title="All 2 branches missed.">        val garbagesToUnload = ship.garbageCapacity.filter { it.value == 0 }</span>
+<span class="nc" id="L352">        var firstGarbageType: GarbageType = GarbageType.PLASTIC</span>
+<span class="nc bnc" id="L353" title="All 2 branches missed.">        for (garbageType in GarbageType.entries) {</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">            if (garbageType in garbagesToUnload.keys &amp;&amp;</span>
+<span class="nc bnc" id="L355" title="All 2 branches missed.">                garbageType in allowedGarbages</span>
+            ) {
+<span class="nc" id="L357">                firstGarbageType = garbageType</span>
+<span class="nc" id="L358">                break</span>
+            }
+        }
+
+<span class="nc" id="L362">        val priorityHarbors = unloadHarbors.filter {</span>
+<span class="nc bnc" id="L363" title="All 4 branches missed.">            it.unloadingStation?.garbagesType?.contains(firstGarbageType) ?: return</span>
+        }
+
+        // Now getting all the tiles from those harbors
+<span class="nc bnc" id="L367" title="All 4 branches missed.">        val unloadTiles = priorityHarbors.map { oceanMap.getTileByID(it.location).getOrNull() ?: return }.toSet()</span>
+
+<span class="nc" id="L369">        val path = pathFinder.getShortestPathToTileStation(shipTile, unloadTiles) // ship.corporation.harbors not needed</span>
+<span class="nc" id="L370">        moveAlongPath(ship, path)</span>
+<span class="nc" id="L371">    }</span>
+
+    /**
+     * Moves the ship towards the target destination of its task.
+     * @throws IllegalArgumentException If the ship has no task.
+     */
+    private fun moveToTask(ship: Ship) {
+<span class="fc" id="L378">        val shipTile = oceanMap.getShipTile(ship)</span>
+<span class="pc bpc" id="L379" title="1 of 2 branches missed.">        val shipTask = ship.task ?: throw IllegalArgumentException(&quot;Ship has no task&quot;)</span>
+<span class="fc" id="L380">        val path = pathFinder.getShortestPathToTile(shipTile, setOf(shipTask.destination))</span>
+<span class="pc bpc" id="L381" title="1 of 2 branches missed.">        if (path.isEmpty()) {</span>
+            // This means that the task destination was not reachable.
+            // In this case the task failed, and we remove it from the ship.
+<span class="nc" id="L384">            ship.task = null</span>
+            // The ship will move according to its default behaviour instead.
+            // Since this includes unloading, we call moveShip() instead of moveShipDefault().
+<span class="nc" id="L387">            return moveShip(ship, shipTile)</span>
+        }
+<span class="fc" id="L389">        moveAlongPath(ship, path)</span>
+<span class="fc" id="L390">    }</span>
+
+    /**
+     * Moves the coordinating ship to purchase the refueling ship, if the corporation can afford it
+     * */
+    private fun moveToPurchase(ship: Ship) {
+<span class="fc" id="L396">        val (shipCost, path) = findMinCostOfPurchase(ship)</span>
+        // We check if the corp can still afford the ship
+<span class="pc bpc" id="L398" title="3 of 6 branches missed.">        if (path.isNotEmpty() &amp;&amp; ship.corporation.credits &gt;= shipCost) {</span>
+<span class="fc" id="L399">            moveAlongPath(ship, path)</span>
+        } else {
+<span class="nc" id="L401">            ship.corporation.decidedToPurchase = false</span>
+<span class="nc" id="L402">            ship.behaviour = Behaviour.DEFAULT</span>
+<span class="nc" id="L403">            ship.goingToPurchase = false</span>
+<span class="nc" id="L404">            moveShipDefault(ship)</span>
+        }
+<span class="fc" id="L406">    }</span>
+
+    /**
+     * It calculates the minimum cost of the ship at nearest shipyard station
+     * @param ship Ship
+     * @return Pair&lt;Int, List&lt;Tile&gt;&gt; returns the pair of the cost and path to that station
+     * */
+    private fun findMinCostOfPurchase(ship: Ship): Pair&lt;Int, List&lt;Tile&gt;&gt; {
+<span class="fc" id="L414">        val shipTile = oceanMap.getShipTile(ship)</span>
+        // Making a list of Corporation harbors having the Shipyard Station
+<span class="fc" id="L416">        val corpShipyardHarbors = harbors.values.filter {</span>
+<span class="pc bpc" id="L417" title="1 of 2 branches missed.">            it.corporations.contains(ship.corporation.id) &amp;&amp;</span>
+<span class="fc bfc" id="L418" title="All 2 branches covered.">                it.shipyardStation != null</span>
+        }
+
+        // Finding min cost of Refueling Ship among all Shipyard Stations belonging to that Corporation
+<span class="pc bpc" id="L422" title="1 of 2 branches missed.">        val minCost = corpShipyardHarbors.map {</span>
+<span class="pc bpc" id="L423" title="1 of 2 branches missed.">            it.shipyardStation?.shipCost ?: return Pair(0, emptyList())</span>
+<span class="pc" id="L424">        }.minOrNull() ?: 0 // Should not be zero</span>
+
+        // Lowest ID Harbor having that minimum ship cost
+<span class="fc" id="L427">        val minCostHarbor = corpShipyardHarbors.filter {</span>
+<span class="pc bpc" id="L428" title="2 of 4 branches missed.">            (it.shipyardStation?.shipCost ?: return Pair(0, emptyList())) == minCost</span>
+<span class="fc" id="L429">        }.minByOrNull { it.id }</span>
+
+<span class="pc bpc" id="L431" title="1 of 2 branches missed.">        if (minCostHarbor != null) {</span>
+<span class="fc" id="L432">            val targetTile = setOf(</span>
+<span class="pc bpc" id="L433" title="1 of 2 branches missed.">                oceanMap.getTileByID(minCostHarbor.location)</span>
+<span class="pc bpc" id="L434" title="1 of 2 branches missed.">                    .getOrNull() ?: return Pair(0, emptyList())</span>
+            )
+<span class="fc" id="L436">            val path = pathFinder.getShortestPathToTileStation(shipTile, targetTile)</span>
+<span class="fc" id="L437">            return Pair(minCost, path)</span>
+        }
+<span class="nc" id="L439">        return Pair(0, emptyList())</span>
+    }
+
+    /**
+     * Moves the ship according to its default behaviour.
+     */
+    private fun moveShipDefault(ship: Ship) {
+<span class="fc" id="L446">        ship.behaviour = Behaviour.DEFAULT</span>
+<span class="fc bfc" id="L447" title="All 4 branches covered.">        val path = when (ship.type) {</span>
+<span class="fc" id="L448">            ShipType.SCOUTING -&gt; getScoutingPathDefault(ship)</span>
+<span class="fc" id="L449">            ShipType.COORDINATING -&gt; getCoordinatingPath(ship)</span>
+<span class="fc" id="L450">            ShipType.COLLECTING -&gt; getCollectingPathDefault(ship)</span>
+<span class="fc" id="L451">            ShipType.REFUELING -&gt; getRefuelingPathDefault(ship)</span>
+        }
+<span class="fc" id="L453">        moveAlongPath(ship, path)</span>
+        // If a collecting ship actually moves towards the selected garbage
+        // and does not go refueling instead, we assign it to the tile of the selected garbage.
+<span class="fc bfc" id="L456" title="All 2 branches covered.">        if (ship.type == ShipType.COLLECTING &amp;&amp;</span>
+<span class="pc bpc" id="L457" title="1 of 2 branches missed.">            ship.behaviour == Behaviour.DEFAULT &amp;&amp;</span>
+<span class="fc bfc" id="L458" title="All 4 branches covered.">            path.isNotEmpty()</span>
+        ) {
+            // path.last() is the location of the selected garbage
+<span class="fc" id="L461">            assignShipToGarbageTile(ship, path.last())</span>
+        }
+<span class="fc" id="L463">    }</span>
+
+    /**
+     * Gives the default path of the refueling ship.
+     * In case no ship with &lt; 50% fuel, it'll return just an empty list
+     * @param ship The Refueling Ship
+     * @return Unit
+     * */
+    private fun getRefuelingPathDefault(ship: Ship): List&lt;Tile&gt; {
+<span class="fc" id="L472">        val shipTile = oceanMap.getShipTile(ship)</span>
+<span class="fc" id="L473">        val otherShips = ship.corporation.ships.filter {</span>
+<span class="fc bfc" id="L474" title="All 2 branches covered.">            it.fuel &lt; Constants.HALF * it.maxFuel &amp;&amp;</span>
+<span class="pc bpc" id="L475" title="2 of 4 branches missed.">                it.id != ship.id &amp;&amp; !it.refuelingFromStation &amp;&amp;</span>
+<span class="fc bfc" id="L476" title="All 2 branches covered.">                it.refueledBy == null &amp;&amp;</span>
+<span class="pc bpc" id="L477" title="1 of 2 branches missed.">                ship.refuelFuel &gt;= it.maxFuel &amp;&amp;</span>
+<span class="pc bpc" id="L478" title="1 of 2 branches missed.">                !it.isDamaged</span>
+        }
+
+        // val destTiles = otherShips.map { oceanMap.getShipTile(it) }.toSet()
+        //
+<span class="fc" id="L483">        val data = mutableMapOf&lt;Tile, Collection&lt;Ship&gt;&gt;()</span>
+<span class="fc bfc" id="L484" title="All 2 branches covered.">        for (otherShip in otherShips) {</span>
+<span class="fc" id="L485">            val otherShipTile = oceanMap.getShipTile(otherShip)</span>
+<span class="pc bpc" id="L486" title="1 of 2 branches missed.">            if (data.contains(otherShipTile)) {</span>
+<span class="nc bnc" id="L487" title="All 2 branches missed.">                data[otherShipTile]?.plus(otherShip)</span>
+            } else {
+<span class="fc" id="L489">                data[otherShipTile] = listOf(otherShip)</span>
+            }
+        }
+
+<span class="fc" id="L493">        val path = pathFinder.getShortestPathToShip(shipTile, data)</span>
+        // val path = pathFinder.getShortestPathToTileShip(shipTile, destTiles, ship.corporation.id)
+        // val path = pathFinder.getShortestPathToShip(shipTile, )
+<span class="fc bfc" id="L496" title="All 2 branches covered.">        val targetedTile = path.lastOrNull() ?: return emptyList()</span>
+<span class="pc bpc" id="L497" title="1 of 2 branches missed.">        val targetedShip = oceanMap.getShipsOnTile(targetedTile).filter { it in otherShips }</span>
+<span class="pc" id="L498">            .minByOrNull { it.id } ?: return emptyList()</span>
+
+<span class="pc bpc" id="L500" title="1 of 2 branches missed.">        return if (ship.canRefuelShip(targetedShip)) {</span>
+<span class="fc" id="L501">            path</span>
+        } else {
+<span class="nc" id="L503">            emptyList()</span>
+        }
+    }
+
+    /**
+     * Returns a path according to the default behaviour of the given scouting ship.
+     */
+    private fun getScoutingPathDefault(ship: Ship): List&lt;Tile&gt; {
+<span class="fc" id="L511">        val shipTile = oceanMap.getShipTile(ship)</span>
+        // First look for garbage in the ship's visibility range and
+        // return the shortest path to the closest reachable garbage if there is one.
+<span class="fc" id="L514">        val garbageInShipVisibility = visibilityHandler.getGarbageInShipVisibility(ship)</span>
+<span class="fc bfc" id="L515" title="All 4 branches covered.">        if (garbageInShipVisibility.isNotEmpty()) {</span>
+<span class="fc" id="L516">            val path = pathFinder.getShortestPathToGarbage(shipTile, garbageInShipVisibility)</span>
+<span class="pc bpc" id="L517" title="2 of 4 branches missed.">            if (path.isNotEmpty()) return path</span>
+        }
+        // Then look for garbage in corporation's information and
+        // return the shortest path to the closest reachable garbage if there is one.
+<span class="fc" id="L521">        val garbageInCorpInformation = visibilityHandler.getGarbageInCorpInformation(ship)</span>
+<span class="fc bfc" id="L522" title="All 4 branches covered.">        if (garbageInCorpInformation.isNotEmpty()) {</span>
+<span class="fc" id="L523">            val path = pathFinder.getShortestPathToGarbage(shipTile, garbageInCorpInformation)</span>
+<span class="pc bpc" id="L524" title="2 of 4 branches missed.">            if (path.isNotEmpty()) return path</span>
+        }
+        // Otherwise return a path according to the ship's exploring behaviour.
+<span class="fc" id="L527">        ship.behaviour = Behaviour.EXPLORING</span>
+<span class="fc" id="L528">        return pathFinder.explore(shipTile, ship.getDistanceWithVelocity())</span>
+    }
+
+    /**
+     * Checks first, if the coordinating ship continue the purchase journey
+     * @param ship as Ship
+     * @return path as List&lt;Tile&gt;
+     * */
+    private fun getCoordinatingPath(ship: Ship): List&lt;Tile&gt; {
+        // If the ship has already made the decision to purchase, we'll won't send other ships for it
+<span class="fc bfc" id="L538" title="All 2 branches covered.">        if (ship.corporation.decidedToPurchase) {</span>
+<span class="fc" id="L539">            return getCoordinatingPathDefault(ship)</span>
+        }
+<span class="fc" id="L541">        val (shipCost, path) = findMinCostOfPurchase(ship)</span>
+
+        // Checking the affordability
+<span class="pc bpc" id="L544" title="3 of 6 branches missed.">        if (ship.corporation.credits &gt;= shipCost &amp;&amp; path.isNotEmpty()) {</span>
+<span class="fc" id="L545">            ship.corporation.decidedToPurchase = true</span>
+<span class="fc" id="L546">            ship.behaviour = Behaviour.PURCHASING</span>
+<span class="fc" id="L547">            ship.goingToPurchase = true</span>
+<span class="fc" id="L548">            return path</span>
+        } else {
+<span class="nc" id="L550">            return getCoordinatingPathDefault(ship)</span>
+        }
+    }
+
+    /**
+     * Returns a path according to the default behaviour of the given coordinating ship.
+     */
+    private fun getCoordinatingPathDefault(ship: Ship): List&lt;Tile&gt; {
+<span class="fc" id="L558">        val shipTile = oceanMap.getShipTile(ship)</span>
+
+        // Look for ships the given ship can cooperate with in the corporation's visibility range
+<span class="fc" id="L561">        val relevantShips = visibilityHandler.getShipsInCorpVisibility(ship)</span>
+<span class="fc" id="L562">            .mapValues { it.value.filter { otherShip -&gt; ship.canCooperateWith(otherShip) } }</span>
+<span class="pc bpc" id="L563" title="1 of 2 branches missed.">            .filter { it.value.isNotEmpty() }</span>
+
+<span class="pc bpc" id="L565" title="2 of 4 branches missed.">        if (relevantShips.isNotEmpty()) {</span>
+<span class="nc" id="L566">            val path = pathFinder.getShortestPathToShip(shipTile, relevantShips)</span>
+<span class="nc bnc" id="L567" title="All 4 branches missed.">            if (path.isNotEmpty()) return path</span>
+        }
+
+        // Default to exploring behavior
+<span class="fc" id="L571">        ship.behaviour = Behaviour.EXPLORING</span>
+<span class="fc" id="L572">        return pathFinder.explore(shipTile, ship.getDistanceWithVelocity())</span>
+    }
+
+    /**
+     * Returns a path according to the default behaviour of the given collecting ship.
+     */
+    private fun getCollectingPathDefault(ship: Ship): List&lt;Tile&gt; {
+<span class="fc" id="L579">        val shipTile = oceanMap.getShipTile(ship)</span>
+        // Look for garbage in the corporation's visibility range.
+<span class="fc" id="L581">        val garbageInCorpVisibility = visibilityHandler.getGarbageInCorpVisibility(ship)</span>
+        // Filter for garbage types the given ship can collect.
+<span class="fc" id="L583">        val garbageWithMatchingTypes = garbageInCorpVisibility</span>
+<span class="fc" id="L584">            .mapValues { it.value.filter { garbage -&gt; garbage.type in ship.maxGarbageCapacity.keys } }</span>
+<span class="fc bfc" id="L585" title="All 2 branches covered.">            .filter { it.value.isNotEmpty() }</span>
+        // Filter for tiles where the corporation hasn't already sent enough ships
+        // to collect all the garbage on that tile.
+<span class="fc" id="L588">        val assignedShipsPerTile = ship.corporation.assignedShipsPerTile</span>
+<span class="fc" id="L589">        val relevantGarbage = garbageWithMatchingTypes</span>
+<span class="pc bpc" id="L590" title="1 of 2 branches missed.">            .filter { notEnoughShipsAssigned(it.value, assignedShipsPerTile[it.key].orEmpty()) }</span>
+        // If there is relevant garbage, return the shortest path to the closest reachable garbage.
+<span class="fc bfc" id="L592" title="All 4 branches covered.">        if (relevantGarbage.isNotEmpty()) {</span>
+<span class="fc" id="L593">            return pathFinder.getShortestPathToGarbage(shipTile, relevantGarbage)</span>
+        }
+        // Otherwise don't move.
+<span class="fc" id="L596">        return emptyList()</span>
+    }
+
+    /**
+     * Checks if corporation hasn't already sent enough ships
+     * to collect all the garbage on the tile.
+     */
+    private fun notEnoughShipsAssigned(garbageOnTile: Collection&lt;Garbage&gt;, ships: Collection&lt;Ship&gt;): Boolean {
+        // Sums of garbage amounts per garbage type on the tile
+<span class="fc" id="L605">        val garbageSumsPerType = SumsPerTypeUtil.getGarbageSumsPerType(garbageOnTile)</span>
+        // Sums of ship capacities per garbage type on the tile
+<span class="fc" id="L607">        val capacitySumsPerType = SumsPerTypeUtil.getCapacitySumsPerType(ships)</span>
+        // Return true if any garbage type doesn't already have enough ships assigned
+<span class="fc" id="L609">        return garbageSumsPerType.any { (garbageType, garbageSum) -&gt;</span>
+<span class="pc bpc" id="L610" title="2 of 4 branches missed.">            garbageSum &gt; (capacitySumsPerType[garbageType] ?: 0)</span>
+        }
+    }
+
+    /**
+     * Assigns the ship to the given tile in the corporation's assignedShipsPerTile map.
+     */
+    private fun assignShipToGarbageTile(ship: Ship, tile: Tile) {
+<span class="fc" id="L618">        ship.corporation.assignedShipsPerTile</span>
+<span class="fc" id="L619">            .getOrPut(tile) { mutableListOf() }</span>
+<span class="fc" id="L620">            .add(ship)</span>
+<span class="fc" id="L621">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

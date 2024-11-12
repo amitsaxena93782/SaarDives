@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SimulationData.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.parser</a> &gt; <span class="el_source">SimulationData.kt</span></div><h1>SimulationData.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.parser
+
+import de.unisaarland.cs.se.selab.data.Corporation
+import de.unisaarland.cs.se.selab.data.Garbage
+import de.unisaarland.cs.se.selab.data.Harbor
+import de.unisaarland.cs.se.selab.data.OceanMap
+import de.unisaarland.cs.se.selab.data.Reward
+import de.unisaarland.cs.se.selab.data.Ship
+import de.unisaarland.cs.se.selab.data.Tile
+import de.unisaarland.cs.se.selab.event.Event
+import de.unisaarland.cs.se.selab.task.Task
+
+/**
+ * The SimulationData class collects all the data objects
+ * created by the parser
+ */
+<span class="fc" id="L17">data class SimulationData(</span>
+<span class="fc" id="L18">    var oceanMap: OceanMap? = null,</span>
+) {
+<span class="fc" id="L20">    val tiles: MutableMap&lt;Int, Tile&gt; = mutableMapOf()</span>
+<span class="fc" id="L21">    val rewards: MutableMap&lt;Int, Reward&gt; = mutableMapOf()</span>
+<span class="fc" id="L22">    val ships: MutableMap&lt;Int, Ship&gt; = mutableMapOf()</span>
+<span class="fc" id="L23">    val tasks: MutableMap&lt;Int, Task&gt; = mutableMapOf()</span>
+<span class="fc" id="L24">    val events: MutableMap&lt;Int, Event&gt; = mutableMapOf()</span>
+<span class="fc" id="L25">    val garbage: MutableMap&lt;Int, Garbage&gt; = mutableMapOf()</span>
+<span class="fc" id="L26">    val corporations: MutableMap&lt;Int, Corporation&gt; = mutableMapOf()</span>
+<span class="fc" id="L27">    val harborTiles: MutableSet&lt;Tile&gt; = mutableSetOf()</span>
+
+    // Some additional fields created by me
+<span class="fc" id="L30">    val harbors: MutableMap&lt;Int, Harbor&gt; = mutableMapOf() // From HarborParser</span>
+<span class="fc" id="L31">    val tileToHarborMap: MutableMap&lt;Int, Harbor&gt; = mutableMapOf() // From MapParser</span>
+<span class="fc" id="L32">    val corpHarbors: MutableMap&lt;Int, MutableList&lt;Harbor&gt;&gt; = mutableMapOf() // From CorpParser</span>
+
+    // Max IDs of the objects
+    // var maxShipID: Int = 0 now moved to Constants
+<span class="fc" id="L36">}</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,81 @@
+{
+  "corporations": [
+    {
+      "id": 0,
+      "name": "Ocean Cleaners Inc.",
+      "ships": [
+        0, 1
+      ],
+      "homeHarbors": [
+        0, 1
+      ],
+      "garbageTypes": ["PLASTIC"],
+      "credits": 2000
+    },
+    {
+      "id": 1,
+      "name": "Ocean Cleaners Inc. 2",
+      "ships": [
+        2, 3
+      ],
+      "homeHarbors": [
+        2
+      ],
+      "garbageTypes": ["OIL"],
+      "credits": 2000
+    }
+  ],
+
+  "ships": [
+    {
+      "id": 0,
+      "name": "Coordinator 1",
+      "type": "COORDINATING",
+      "corporation": 0,
+      "location": 14,
+      "maxVelocity": 50,
+      "acceleration": 15,
+      "fuelCapacity": 3898,
+      "fuelConsumption": 5,
+      "visibilityRange": 1
+    },
+    {
+      "id": 1,
+      "name": "Collector 1",
+      "type": "COLLECTING",
+      "corporation": 0,
+      "location": 14,
+      "maxVelocity": 20,
+      "acceleration": 10,
+      "fuelCapacity": 3898,
+      "fuelConsumption": 6,
+      "garbageType": "PLASTIC",
+      "capacity": 1000
+    },
+    {
+      "id": 2,
+      "name": "Coordinator 2",
+      "type": "COORDINATING",
+      "corporation": 1,
+      "location": 59,
+      "maxVelocity": 50,
+      "acceleration": 15,
+      "fuelCapacity": 3898,
+      "fuelConsumption": 5,
+      "visibilityRange": 1
+    },
+    {
+      "id": 3,
+      "name": "Collector 2",
+      "type": "COLLECTING",
+      "corporation": 1,
+      "location": 88,
+      "maxVelocity": 12,
+      "acceleration": 6,
+      "fuelCapacity": 4532,
+      "fuelConsumption": 6,
+      "garbageType": "OIL",
+      "capacity": 50000
+    }
+  ]
+}

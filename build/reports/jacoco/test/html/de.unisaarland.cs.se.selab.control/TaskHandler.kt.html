@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TaskHandler.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.control</a> &gt; <span class="el_source">TaskHandler.kt</span></div><h1>TaskHandler.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.control
+
+import de.unisaarland.cs.se.selab.Logger
+import de.unisaarland.cs.se.selab.data.OceanMap
+import de.unisaarland.cs.se.selab.data.Reward
+import de.unisaarland.cs.se.selab.data.Ship
+import de.unisaarland.cs.se.selab.enums.Behaviour
+import de.unisaarland.cs.se.selab.enums.GarbageType
+import de.unisaarland.cs.se.selab.enums.RewardType
+import de.unisaarland.cs.se.selab.enums.TaskType
+import de.unisaarland.cs.se.selab.parser.SimulationData
+import de.unisaarland.cs.se.selab.task.Task
+
+/**
+ * the controller class for handling tasks.
+ */
+<span class="fc" id="L17">class TaskHandler(</span>
+    simulationData: SimulationData,
+<span class="fc" id="L19">    private val oceanMap: OceanMap,</span>
+<span class="fc" id="L20">    private val pathFinder: PathFinder</span>
+) {
+<span class="fc" id="L22">    private val tasks: ArrayDeque&lt;Task&gt; = ArrayDeque(simulationData.tasks.values.sortedBy { it.tick })</span>
+<span class="fc" id="L23">    private val activeTasks = sortedSetOf&lt;Task&gt;(compareBy { it.id })</span>
+
+    /**
+     * this function is called by the simulation and updates each tick the tasks.
+     * @param tick the current tick
+     */
+    fun updateTasks(tick: Int) {
+        // start new tasks if the tick is reached
+<span class="fc bfc" id="L31" title="All 6 branches covered.">        while (tasks.firstOrNull()?.tick == tick) {</span>
+<span class="fc" id="L32">            val task = tasks.removeFirst()</span>
+<span class="fc" id="L33">            activeTasks.add(task)</span>
+        }
+        // activate new tasks and give rewards if a task has been achieved.
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        for (task in activeTasks) {</span>
+<span class="fc bfc" id="L37" title="All 2 branches covered.">            if (task.tick == tick) {</span>
+<span class="fc" id="L38">                activateTask(task)</span>
+<span class="pc bpc" id="L39" title="1 of 2 branches missed.">            } else if (task.finished) {</span>
+<span class="nc" id="L40">                giveReward(task)</span>
+            }
+        }
+        // remove finished or failed tasks from the active tasks.
+<span class="pc bpc" id="L44" title="2 of 4 branches missed.">        activeTasks.removeIf { it.finished || it.toBeRemoved }</span>
+<span class="fc" id="L45">    }</span>
+
+    /**
+     * helper function that activates a task.
+     * @param task the task that should be activated
+     */
+    private fun activateTask(task: Task) {
+<span class="fc bfc" id="L52" title="All 2 branches covered.">        val ship = oceanMap.shipToTile.keys.first { ship -&gt; ship.id == task.shipId }</span>
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">        val shipTile = oceanMap.shipToTile[ship] ?: return</span>
+<span class="fc" id="L54">        val distanceWithFuel = ship.getDistanceWithFuel()</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">        if (pathFinder.isReachableWithinDistance(shipTile, setOf(task.destination), distanceWithFuel)) {</span>
+            // remove overwritten tasks from the active tasks
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">            ship.task?.toBeRemoved = true</span>
+<span class="fc" id="L58">            ship.task = task</span>
+<span class="fc" id="L59">            ship.behaviour = Behaviour.DOING_TASK</span>
+<span class="fc" id="L60">            Logger.logTask(task.id, task.getType(), ship.id, task.destination.id)</span>
+<span class="fc" id="L61">            activeTasks.add(task)</span>
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">            if (task.getType() == TaskType.COOPERATE) task.update(ship, oceanMap, false)</span>
+        }
+<span class="fc" id="L64">    }</span>
+
+    /**
+     * helper function that gives the reward of a task to the ship.
+     * @param task the task was achieved
+     */
+    private fun giveReward(task: Task) {
+<span class="nc bnc" id="L71" title="All 2 branches missed.">        val ship = oceanMap.shipToTile.keys.first { it.id == task.rewardShipId }</span>
+<span class="nc" id="L72">        ship.reward.add(task.reward.type)</span>
+<span class="nc" id="L73">        changeParameters(ship, task.reward)</span>
+<span class="nc" id="L74">        Logger.logReward(task.id, ship.id, task.reward.type)</span>
+<span class="nc" id="L75">    }</span>
+
+    /**
+     * helper function that changes the behavior of a ship according to the reward.
+     * @param ship the ship that should be changed
+     * @param reward the reward that should be given to the ship
+     */
+    private fun changeParameters(ship: Ship, reward: Reward) {
+<span class="nc bnc" id="L83" title="All 3 branches missed.">        when (reward.type) {</span>
+            RewardType.CONTAINER -&gt; {
+<span class="nc" id="L85">                changeContainer(ship, reward)</span>
+            }
+
+            RewardType.TELESCOPE -&gt; {
+<span class="nc" id="L89">                val rewardVisibility = reward.visibilityRange</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">                if (rewardVisibility != null) {</span>
+<span class="nc" id="L91">                    ship.usedVisibilityRange += rewardVisibility</span>
+                }
+            }
+
+            else -&gt; {}
+        }
+<span class="nc" id="L97">    }</span>
+
+    /**
+     * helper function that changes the container of a ship according to the reward.
+     * @param ship the ship that should be changed
+     * @param reward the reward that should be given to the ship
+     */
+    private fun changeContainer(ship: Ship, reward: Reward) {
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        if (reward.garbageType in ship.corporation.garbageTypes) {</span>
+<span class="nc" id="L106">            rewardCapacity(ship.maxGarbageCapacity, reward)</span>
+<span class="nc" id="L107">            rewardCapacity(ship.garbageCapacity, reward)</span>
+        }
+<span class="nc" id="L109">    }</span>
+
+    /**
+     * helper function that changes the capacity of a ship according to the reward.
+     * @param currentCapacity the current capacity of the ship
+     * @param reward the reward that should be given to the ship
+     */
+    private fun rewardCapacity(currentCapacity: MutableMap&lt;GarbageType, Int&gt;, reward: Reward) {
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        if (!currentCapacity.keys.contains(reward.garbageType)) {</span>
+<span class="nc bnc" id="L118" title="All 4 branches missed.">            reward.garbageType?.let { reward.capacity?.let { it1 -&gt; currentCapacity.put(it, it1) } }</span>
+        } else {
+<span class="nc" id="L120">            val currentCapability = currentCapacity[reward.garbageType]</span>
+<span class="nc bnc" id="L121" title="All 4 branches missed.">            if (reward.capacity != null &amp;&amp; currentCapability != null) {</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">                reward.garbageType?.let { currentCapacity.put(it, currentCapability + reward.capacity) }</span>
+            }
+        }
+<span class="nc" id="L125">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

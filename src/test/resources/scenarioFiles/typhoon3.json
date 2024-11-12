@@ -1,0 +1,36 @@
+{
+  "garbage": [
+    {
+      "id": 1,
+      "type": "OIL",
+      "location": 28,
+      "amount": 800
+    },
+    {
+      "id": 2,
+      "type": "PLASTIC",
+      "location": 74,
+      "amount": 300
+    }
+  ],
+  "events": [
+    {
+      "id": 1,
+      "type": "TYPHOON",
+      "tick": 8,
+      "location": 16,
+      "radius": 2,
+      "strength": 4
+    },
+    {
+      "id": 2,
+      "type": "TYPHOON",
+      "tick": 8,
+      "location": 16,
+      "radius": 2,
+      "strength": 4
+    }
+  ],
+  "tasks": [],
+  "rewards": []
+}

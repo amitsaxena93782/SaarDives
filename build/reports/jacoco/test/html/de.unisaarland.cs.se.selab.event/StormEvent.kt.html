@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StormEvent.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.event</a> &gt; <span class="el_source">StormEvent.kt</span></div><h1>StormEvent.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.event
+
+import de.unisaarland.cs.se.selab.Logger
+import de.unisaarland.cs.se.selab.control.DriftingUtil
+import de.unisaarland.cs.se.selab.data.Garbage
+import de.unisaarland.cs.se.selab.data.OceanMap
+import de.unisaarland.cs.se.selab.data.Tile
+import de.unisaarland.cs.se.selab.enums.Direction
+import de.unisaarland.cs.se.selab.parser.JsonKeys
+
+/**
+ * StormEvent will drift all garbage, which lies on the tile(location) within the radius,
+ * to the direction and distance. It'll not drift any ships.
+ */
+<span class="nc" id="L15">class StormEvent(</span>
+<span class="nc" id="L16">    private val radius: Int,</span>
+<span class="nc" id="L17">    val speed: Int,</span>
+<span class="nc" id="L18">    val direction: Int,</span>
+<span class="nc" id="L19">    private val location: Tile,</span>
+    id: Int,
+    tick: Int
+<span class="nc" id="L22">) : Event(id, tick) {</span>
+<span class="nc" id="L23">    private val moveDirection = Direction.createDirection(direction)</span>
+<span class="nc" id="L24">    val affectedGarbage = mutableListOf&lt;Garbage&gt;()</span>
+
+    override fun execute(oceanMap: OceanMap) {
+<span class="nc" id="L27">        val affectedTiles = oceanMap.getTilesInRadius(location, radius)</span>
+<span class="nc" id="L28">        Logger.logEvent(id, JsonKeys.STORM)</span>
+<span class="nc bnc" id="L29" title="All 2 branches missed.">        for (tile in affectedTiles) {</span>
+<span class="nc" id="L30">            moveGarbage(oceanMap, tile)</span>
+        }
+<span class="nc" id="L32">    }</span>
+
+    /**
+     * If there is garbage on the tile,
+     * move it according to the storm direction and speed.
+     */
+    private fun moveGarbage(oceanMap: OceanMap, tile: Tile) {
+<span class="nc bnc" id="L39" title="All 2 branches missed.">        for (garbage in oceanMap.getGarbageOnTile(tile)) {</span>
+<span class="nc bnc" id="L40" title="All 2 branches missed.">            if (garbage !in affectedGarbage) {</span>
+<span class="nc" id="L41">                DriftingUtil.driftGarbage(oceanMap, garbage, tile, moveDirection, speed)</span>
+<span class="nc" id="L42">                affectedGarbage.add(garbage)</span>
+            }
+        }
+<span class="nc" id="L45">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

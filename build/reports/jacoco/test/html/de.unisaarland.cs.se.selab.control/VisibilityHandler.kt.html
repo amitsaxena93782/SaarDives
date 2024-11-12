@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VisibilityHandler.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.control</a> &gt; <span class="el_source">VisibilityHandler.kt</span></div><h1>VisibilityHandler.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.control
+
+import de.unisaarland.cs.se.selab.data.Corporation
+import de.unisaarland.cs.se.selab.data.Garbage
+import de.unisaarland.cs.se.selab.data.OceanMap
+import de.unisaarland.cs.se.selab.data.Ship
+import de.unisaarland.cs.se.selab.data.Tile
+import de.unisaarland.cs.se.selab.enums.ShipType
+import java.util.SortedSet
+
+/**
+ * Class to handle visibility and information of corporations
+ */
+<span class="fc" id="L14">class VisibilityHandler(</span>
+<span class="fc" id="L15">    private val oceanMap: OceanMap,</span>
+<span class="fc" id="L16">    private val corporations: List&lt;Corporation&gt;</span>
+) {
+    private fun getTilesInShipVisibility(ship: Ship): Set&lt;Tile&gt; {
+<span class="fc" id="L19">        val shipTile = oceanMap.getShipTile(ship)</span>
+        // ADDED a small change
+<span class="fc bfc" id="L21" title="All 2 branches covered.">        if (ship.type == ShipType.REFUELING) return emptySet()</span>
+<span class="fc" id="L22">        val tilesInShipVisibility = oceanMap.getTilesInRadius(shipTile, ship.usedVisibilityRange)</span>
+<span class="fc" id="L23">        return tilesInShipVisibility.toSet()</span>
+    }
+
+    private fun getTilesInCorpVisibility(corporation: Corporation): Set&lt;Tile&gt; {
+<span class="fc" id="L27">        return corporation.ships.flatMapTo(mutableSetOf()) { getTilesInShipVisibility(it) }</span>
+    }
+
+    private fun getTileToGarbage(garbage: Collection&lt;Garbage&gt;): Map&lt;Tile, Collection&lt;Garbage&gt;&gt; {
+<span class="fc" id="L31">        return garbage.filter { it in oceanMap.garbageToTile.keys }.groupBy { oceanMap.getGarbageTile(it) }</span>
+    }
+
+    private fun MutableMap&lt;Tile, SortedSet&lt;Garbage&gt;&gt;.update(tileToGarbage: Map&lt;Tile, Collection&lt;Garbage&gt;&gt;) {
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        for ((tile, garbageOnTile) in tileToGarbage) {</span>
+<span class="fc" id="L36">            val originalGarbageOnTile = getOrPut(tile) { sortedSetOf&lt;Garbage&gt;() }</span>
+<span class="fc" id="L37">            originalGarbageOnTile.addAll(garbageOnTile)</span>
+        }
+<span class="fc" id="L39">    }</span>
+
+    /**
+     * Update corporation information
+     */
+    fun updateCorpInformation(corporation: Corporation) {
+<span class="fc" id="L45">        val tilesInCorpVisibility = getTilesInCorpVisibility(corporation)</span>
+<span class="fc" id="L46">        val visibleTileToGarbage = oceanMap.tileToGarbage</span>
+<span class="fc" id="L47">            .filterKeys { it in tilesInCorpVisibility }</span>
+<span class="fc" id="L48">            .mapValues { it.value.toSortedSet() }</span>
+<span class="fc" id="L49">        val tileToTrackedGarbage = getTileToGarbage(corporation.trackedGarbage)</span>
+<span class="fc" id="L50">        val garbageInCorpVisibility = visibleTileToGarbage.values</span>
+<span class="fc" id="L51">            .flatMapTo(mutableSetOf()) { it }</span>
+<span class="fc" id="L52">            .apply { addAll(corporation.trackedGarbage) }</span>
+
+<span class="fc" id="L54">        corporation.information.keys.removeIf { it in tilesInCorpVisibility }</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">        for (garbageOnTile in corporation.information.values) {</span>
+<span class="nc" id="L56">            garbageOnTile.removeIf { it in garbageInCorpVisibility }</span>
+        }
+<span class="pc" id="L58">        corporation.information.values.removeIf { it.isEmpty() }</span>
+<span class="fc" id="L59">        corporation.information.putAll(visibleTileToGarbage)</span>
+<span class="fc" id="L60">        corporation.information.update(tileToTrackedGarbage)</span>
+<span class="fc" id="L61">    }</span>
+
+    /**
+     * Update corporation information based on coordination
+     */
+    fun updateCorpInformation(sender: Corporation, receiver: Corporation) {
+<span class="nc" id="L67">        val garbageInReceiverInformation = receiver.information.values.flatten().toSet()</span>
+<span class="nc" id="L68">        val coordinatingInformation = sender.information</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">            .mapValues { it.value.filter { garbage -&gt; garbage !in garbageInReceiverInformation } }</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">            .filterValues { it.isNotEmpty() }</span>
+<span class="nc" id="L71">        receiver.information.update(coordinatingInformation)</span>
+<span class="nc" id="L72">    }</span>
+
+    /**
+     * Update the information of all corporations with the locations of garbage
+     * that was affected or created by an event
+     */
+    fun globalUpdateCorpInformation(affectedGarbage: Collection&lt;Garbage&gt;) {
+<span class="fc" id="L79">        val tileToAffectedGarbage = getTileToGarbage(affectedGarbage)</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        for (corporation in corporations) {</span>
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">            for (garbageOnTile in corporation.information.values) {</span>
+<span class="nc" id="L82">                garbageOnTile.removeIf { it in affectedGarbage }</span>
+            }
+<span class="pc" id="L84">            corporation.information.values.removeIf { it.isEmpty() }</span>
+<span class="fc" id="L85">            corporation.information.update(tileToAffectedGarbage)</span>
+        }
+<span class="fc" id="L87">    }</span>
+
+    /**
+     * Get garbage in ship visibility
+     */
+    fun getGarbageInShipVisibility(ship: Ship): Map&lt;Tile, Collection&lt;Garbage&gt;&gt; {
+<span class="fc" id="L93">        val tilesInShipVisibility = getTilesInShipVisibility(ship)</span>
+<span class="fc" id="L94">        return oceanMap.tileToGarbage.filterKeys { it in tilesInShipVisibility }</span>
+    }
+
+    /**
+     * Get garbage in corp visibility
+     */
+    fun getGarbageInCorpVisibility(ship: Ship): Map&lt;Tile, Collection&lt;Garbage&gt;&gt; {
+<span class="fc" id="L101">        val tileToTrackedGarbage = getTileToGarbage(ship.corporation.trackedGarbage)</span>
+<span class="fc" id="L102">        val tilesInCorpVisibility = getTilesInCorpVisibility(ship.corporation)</span>
+<span class="fc" id="L103">        val garbageInCorpVisibility = oceanMap.tileToGarbage</span>
+<span class="fc" id="L104">            .filterKeys { it in tilesInCorpVisibility }.toMutableMap()</span>
+<span class="fc" id="L105">            .also { it.update(tileToTrackedGarbage) }</span>
+<span class="fc" id="L106">        return garbageInCorpVisibility</span>
+    }
+
+    /**
+     * Get garbage in corp information
+     */
+    fun getGarbageInCorpInformation(ship: Ship): Map&lt;Tile, Collection&lt;Garbage&gt;&gt; {
+<span class="fc" id="L113">        return ship.corporation.information</span>
+    }
+
+    /**
+     * Get ships in corp visibility
+     */
+    fun getShipsInCorpVisibility(ship: Ship): Map&lt;Tile, Collection&lt;Ship&gt;&gt; {
+<span class="fc" id="L120">        val tilesInCorpVisibility = getTilesInCorpVisibility(ship.corporation)</span>
+<span class="fc" id="L121">        return oceanMap.tileToShip.filterKeys { it in tilesInCorpVisibility }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

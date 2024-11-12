@@ -1,0 +1,44 @@
+{
+  "garbage": [
+    {
+      "id": 1,
+      "type": "OIL",
+      "location": 28,
+      "amount": 800
+    },
+    {
+      "id": 2,
+      "type": "PLASTIC",
+      "location": 74,
+      "amount": 300
+    }
+  ],
+  "events": [
+    {
+      "id": 1,
+      "type": "TYPHOON",
+      "tick": 5,
+      "location": 57,
+      "radius": 2,
+      "strength": 4
+    }
+  ],
+  "tasks": [
+    {
+      "id": 1,
+      "type": "EXPLORE",
+      "tick": 3,
+      "shipID": 2,
+      "targetTile": 74,
+      "rewardID": 1,
+      "rewardShipID": 2
+    }
+  ],
+  "rewards": [
+    {
+      "id": 1,
+      "type": "TELESCOPE",
+      "visibilityRange": 2
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "garbage": [
+    {
+      "id": 1,
+      "type": "OIL",
+      "location": 28,
+      "amount": 800
+    },
+    {
+      "id": 2,
+      "type": "PLASTIC",
+      "location": 74,
+      "amount": 300
+    }
+  ],
+  "events": [
+    {
+      "id": 1,
+      "type": "RESTRICTION",
+      "tick": 7,
+      "duration": 1,
+      "location": 14,
+      "radius": 1
+    }
+  ],
+  "tasks": [],
+  "rewards": []
+}

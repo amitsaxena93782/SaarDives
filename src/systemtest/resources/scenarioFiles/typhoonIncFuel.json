@@ -1,0 +1,23 @@
+{
+  "garbage": [],
+  "events": [
+    {
+      "id": 1,
+      "type": "TYPHOON",
+      "tick": 0,
+      "location": 23,
+      "radius": 2,
+      "strength": 4
+    },
+    {
+      "id": 2,
+      "type": "TYPHOON",
+      "tick": 0,
+      "location": 59,
+      "radius": 2,
+      "strength": 4
+    }
+  ],
+  "tasks": [],
+  "rewards": []
+}

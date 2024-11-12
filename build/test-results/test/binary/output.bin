@@ -1,0 +1,205 @@
+GInitialization Info: worldMap2.json successfully parsed and validated.
+GInitialization Info: smallCorp.json successfully parsed and validated.
+FInitialization Info: typhoon6.json successfully parsed and validated.
+%Simulation Info: Simulation started.
+!Simulation Info: Tick 0 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+6Ship Movement: Ship 0 moved with speed 25 to tile 12.
+6Ship Movement: Ship 1 moved with speed 10 to tile 52.
+6Ship Movement: Ship 4 moved with speed 15 to tile 59.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+RPurchase: Ship 1 ordered a refueling ship with id 5 at harbor 1 for 1234 credits.
+8Corporation Action: Corporation 0 finished its actions.
+!Simulation Info: Tick 1 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+6Ship Movement: Ship 0 moved with speed 50 to tile 17.
+6Ship Movement: Ship 1 moved with speed 10 to tile 42.
+6Ship Movement: Ship 2 moved with speed 10 to tile 26.
+6Ship Movement: Ship 4 moved with speed 30 to tile 28.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+8Corporation Action: Corporation 0 finished its actions.
+!Simulation Info: Tick 2 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+6Ship Movement: Ship 0 moved with speed 75 to tile 28.
+6Ship Movement: Ship 1 moved with speed 20 to tile 22.
+6Ship Movement: Ship 2 moved with speed 20 to tile 28.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+@Garbage Collection: Ship 2 collected 800 of garbage OIL with 1.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+8Corporation Action: Corporation 0 finished its actions.
+!Simulation Info: Tick 3 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+6Ship Movement: Ship 0 moved with speed 25 to tile 17.
+6Ship Movement: Ship 1 moved with speed 30 to tile 15.
+6Ship Movement: Ship 4 moved with speed 15 to tile 18.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+8Corporation Action: Corporation 0 finished its actions.
+GTask: Task 1 of type EXPLORE with ship 2 is added with destination 74.
+!Simulation Info: Tick 4 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+6Ship Movement: Ship 0 moved with speed 50 to tile 12.
+6Ship Movement: Ship 1 moved with speed 30 to tile 12.
+6Ship Movement: Ship 2 moved with speed 10 to tile 38.
+6Ship Movement: Ship 4 moved with speed 30 to tile 15.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+3Purchase: Ship 5 delivered to corporation 0 at 52.
+8Corporation Action: Corporation 0 finished its actions.
+!Simulation Info: Tick 5 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+6Ship Movement: Ship 0 moved with speed 75 to tile 19.
+6Ship Movement: Ship 1 moved with speed 30 to tile 42.
+6Ship Movement: Ship 2 moved with speed 20 to tile 57.
+6Ship Movement: Ship 4 moved with speed 45 to tile 19.
+6Ship Movement: Ship 5 moved with speed 27 to tile 33.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+8Corporation Action: Corporation 0 finished its actions.
+7Current Drift: Ship 2 drifted from tile 57 to tile 47.
+)Event: Event 1 of type TYPHOON happened.
+=Event: Typhoon 1 at tile 57 with radius 2 affected ships: 2.
+!Simulation Info: Tick 6 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+7Ship Movement: Ship 0 moved with speed 100 to tile 47.
+6Ship Movement: Ship 1 moved with speed 30 to tile 52.
+6Ship Movement: Ship 2 moved with speed 20 to tile 59.
+6Ship Movement: Ship 4 moved with speed 60 to tile 47.
+6Ship Movement: Ship 5 moved with speed 54 to tile 47.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+,Refueling: Ship 5 started to refuel ship 0.
+>Repair: Ship 2 is being repaired at harbor 2 for 200 credits.
+RPurchase: Ship 1 ordered a refueling ship with id 6 at harbor 1 for 1234 credits.
+8Corporation Action: Corporation 0 finished its actions.
+ECurrent Drift: OIL 4 with amount 50 drifted from tile 47 to tile 37.
+7Current Drift: Ship 0 drifted from tile 47 to tile 37.
+!Simulation Info: Tick 7 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+6Ship Movement: Ship 1 moved with speed 10 to tile 42.
+6Ship Movement: Ship 5 moved with speed 27 to tile 37.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+,Refueling: Ship 5 started to refuel ship 0.
+Repair: Ship 2 is repaired.
+8Corporation Action: Corporation 0 finished its actions.
+ECurrent Drift: OIL 4 with amount 50 drifted from tile 37 to tile 36.
+ECurrent Drift: OIL 5 with amount 50 drifted from tile 47 to tile 37.
+7Current Drift: Ship 0 drifted from tile 37 to tile 36.
+7Current Drift: Ship 4 drifted from tile 47 to tile 37.
+!Simulation Info: Tick 8 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+6Ship Movement: Ship 1 moved with speed 20 to tile 22.
+6Ship Movement: Ship 2 moved with speed 10 to tile 48.
+6Ship Movement: Ship 5 moved with speed 27 to tile 36.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+,Refueling: Ship 5 started to refuel ship 0.
+8Corporation Action: Corporation 0 finished its actions.
+ECurrent Drift: OIL 4 with amount 50 drifted from tile 36 to tile 35.
+ECurrent Drift: OIL 5 with amount 50 drifted from tile 37 to tile 36.
+ECurrent Drift: OIL 6 with amount 50 drifted from tile 47 to tile 37.
+7Current Drift: Ship 0 drifted from tile 36 to tile 35.
+7Current Drift: Ship 4 drifted from tile 37 to tile 36.
+!Simulation Info: Tick 9 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+6Ship Movement: Ship 1 moved with speed 30 to tile 15.
+6Ship Movement: Ship 2 moved with speed 20 to tile 47.
+6Ship Movement: Ship 5 moved with speed 27 to tile 35.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+@Garbage Collection: Ship 2 collected 650 of garbage OIL with 3.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+,Refueling: Ship 5 started to refuel ship 0.
+8Corporation Action: Corporation 0 finished its actions.
+ECurrent Drift: OIL 4 with amount 50 drifted from tile 35 to tile 34.
+ECurrent Drift: OIL 5 with amount 50 drifted from tile 36 to tile 35.
+ECurrent Drift: OIL 6 with amount 50 drifted from tile 37 to tile 36.
+7Current Drift: Ship 0 drifted from tile 35 to tile 34.
+7Current Drift: Ship 4 drifted from tile 36 to tile 35.
+7Current Drift: Ship 2 drifted from tile 47 to tile 37.
+"Simulation Info: Tick 10 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+6Ship Movement: Ship 1 moved with speed 30 to tile 12.
+6Ship Movement: Ship 2 moved with speed 10 to tile 36.
+6Ship Movement: Ship 5 moved with speed 27 to tile 34.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+?Garbage Collection: Ship 2 collected 50 of garbage OIL with 6.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+,Refueling: Ship 5 started to refuel ship 0.
+3Purchase: Ship 6 delivered to corporation 0 at 52.
+8Corporation Action: Corporation 0 finished its actions.
+ECurrent Drift: OIL 4 with amount 50 drifted from tile 34 to tile 44.
+ECurrent Drift: OIL 5 with amount 50 drifted from tile 35 to tile 34.
+7Current Drift: Ship 0 drifted from tile 34 to tile 44.
+7Current Drift: Ship 4 drifted from tile 35 to tile 34.
+7Current Drift: Ship 2 drifted from tile 36 to tile 35.
+"Simulation Info: Tick 11 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+6Ship Movement: Ship 1 moved with speed 30 to tile 42.
+6Ship Movement: Ship 2 moved with speed 10 to tile 44.
+6Ship Movement: Ship 5 moved with speed 27 to tile 44.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+?Garbage Collection: Ship 2 collected 50 of garbage OIL with 4.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+,Refueling: Ship 5 started to refuel ship 0.
+8Corporation Action: Corporation 0 finished its actions.
+ECurrent Drift: OIL 5 with amount 50 drifted from tile 34 to tile 44.
+7Current Drift: Ship 4 drifted from tile 34 to tile 44.
+7Current Drift: Ship 0 drifted from tile 44 to tile 43.
+"Simulation Info: Tick 12 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+6Ship Movement: Ship 0 moved with speed 25 to tile 44.
+6Ship Movement: Ship 1 moved with speed 30 to tile 52.
+6Ship Movement: Ship 3 moved with speed 12 to tile 78.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+?Garbage Collection: Ship 2 collected 50 of garbage OIL with 5.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+,Refueling: Ship 5 started to refuel ship 0.
+RPurchase: Ship 1 ordered a refueling ship with id 7 at harbor 1 for 1234 credits.
+8Corporation Action: Corporation 0 finished its actions.
+7Current Drift: Ship 0 drifted from tile 44 to tile 43.
+"Simulation Info: Tick 13 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+6Ship Movement: Ship 0 moved with speed 25 to tile 63.
+6Ship Movement: Ship 1 moved with speed 10 to tile 42.
+6Ship Movement: Ship 3 moved with speed 12 to tile 77.
+6Ship Movement: Ship 4 moved with speed 15 to tile 54.
+6Ship Movement: Ship 5 moved with speed 27 to tile 63.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+,Refueling: Ship 5 started to refuel ship 0.
+8Corporation Action: Corporation 0 finished its actions.
+7Current Drift: Ship 2 drifted from tile 44 to tile 43.
+7Current Drift: Ship 4 drifted from tile 54 to tile 64.
+"Simulation Info: Tick 14 started.
+ACorporation Action: Corporation 0 is starting to move its ships.
+6Ship Movement: Ship 1 moved with speed 20 to tile 22.
+6Ship Movement: Ship 3 moved with speed 12 to tile 76.
+6Ship Movement: Ship 4 moved with speed 30 to tile 74.
+BCorporation Action: Corporation 0 is starting to collect garbage.
+TCorporation Action: Corporation 0 is starting to cooperate with other corporations.
+9Corporation Action: Corporation 0 is starting to refuel.
+8Corporation Action: Corporation 0 finished its actions.
+#Simulation Info: Simulation ended.
+7Simulation Info: Simulation statistics are calculated.
+@Simulation Statistics: Corporation 0 collected 1600 of garbage.
+=Simulation Statistics: Total amount of plastic collected: 0.
+<Simulation Statistics: Total amount of oil collected: 1600.
+?Simulation Statistics: Total amount of chemicals collected: 0.
+HSimulation Statistics: Total amount of garbage still in the ocean: 300.

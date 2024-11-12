@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ShipValidationConstants.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">individual_phase_2024</a> &gt; <a href="index.source.html" class="el_package">de.unisaarland.cs.se.selab.parser</a> &gt; <span class="el_source">ShipValidationConstants.kt</span></div><h1>ShipValidationConstants.kt</h1><pre class="source lang-java linenums">package de.unisaarland.cs.se.selab.parser
+
+import de.unisaarland.cs.se.selab.enums.GarbageType
+import de.unisaarland.cs.se.selab.enums.ShipType
+
+/**
+ * Constants for validating Ships.
+ */
+object ShipValidationConstants {
+    const val SCOUTINGMAXVELMIN = 10
+    const val SCOUTINGMAXVELMAX = 100
+    const val SCOUTINGACCELMIN = 5
+    const val SCOUTINGACCELMAX = 25
+    const val SCOUTINGFUELCAPMIN = 3000
+    const val SCOUTINGFUELCAPMAX = 10000
+    const val SCOUTINGFUELCONSUMPMIN = 7
+    const val SCOUTINGFUELCONSUMPMAX = 10
+    const val SCOUTINGVISRANGEMIN = 2
+    const val SCOUTINGVISRANGEMAX = 5
+    const val COORDINATINGMAXVELMIN = 10
+    const val COORDINATINGMAXVELMAX = 50
+    const val COORDINATINGACCELMIN = 5
+    const val COORDINATINGACCELMAX = 15
+    const val COORDINATINGFUELCAPMIN = 3000
+    const val COORDINATINGFUELCAPMAX = 5000
+    const val COORDINATINGFUELCONSUMPMIN = 5
+    const val COORDINATINGFUELCONSUMPMAX = 7
+    const val COORDINATINGVISRANGEMIN = 1
+    const val COORDINATINGVISRANGEMAX = 1
+    const val COLLECTINGMAXVELMIN = 10
+    const val COLLECTINGMAXVELMAX = 50
+    const val COLLECTINGACCELMIN = 5
+    const val COLLECTINGACCELMAX = 10
+    const val COLLECTINGFUELCAPMIN = 3000
+    const val COLLECTINGFUELCAPMAX = 5000
+    const val COLLECTINGFUELCONSUMPMIN = 5
+    const val COLLECTINGFUELCONSUMPMAX = 9
+    const val COLLECTINGVISRANGEMIN = 0
+    const val COLLECTINGVISRANGEMAX = 0
+
+    const val PLASTICCAPMIN = 1000
+    const val PLASTICCAPMAX = 5000
+    const val OILCAPMIN = 50000
+    const val OILCAPMAX = 100000
+    const val CHEMCAPMIN = 1000
+    const val CHEMCAPMAX = 10000
+}
+
+/*
+the following extends ShipType and GarbageType with fields that have the validation constants
+ */
+
+internal val ShipType.maxVelMin: Int
+<span class="pc bpc" id="L54" title="1 of 4 branches missed.">    get() = when (this) {</span>
+<span class="fc" id="L55">        ShipType.SCOUTING -&gt; ShipValidationConstants.SCOUTINGMAXVELMIN</span>
+<span class="fc" id="L56">        ShipType.COORDINATING -&gt; ShipValidationConstants.COORDINATINGMAXVELMIN</span>
+<span class="fc" id="L57">        ShipType.COLLECTING -&gt; ShipValidationConstants.COLLECTINGMAXVELMIN</span>
+<span class="pc" id="L58">        ShipType.REFUELING -&gt; TODO()</span>
+<span class="fc" id="L59">    }</span>
+
+internal val ShipType.maxVelMax: Int
+<span class="pc bpc" id="L62" title="1 of 4 branches missed.">    get() = when (this) {</span>
+<span class="fc" id="L63">        ShipType.SCOUTING -&gt; ShipValidationConstants.SCOUTINGMAXVELMAX</span>
+<span class="fc" id="L64">        ShipType.COORDINATING -&gt; ShipValidationConstants.COORDINATINGMAXVELMAX</span>
+<span class="fc" id="L65">        ShipType.COLLECTING -&gt; ShipValidationConstants.COLLECTINGMAXVELMAX</span>
+<span class="pc" id="L66">        ShipType.REFUELING -&gt; TODO()</span>
+<span class="fc" id="L67">    }</span>
+
+internal val ShipType.accelMin: Int
+<span class="pc bpc" id="L70" title="1 of 4 branches missed.">    get() = when (this) {</span>
+<span class="fc" id="L71">        ShipType.SCOUTING -&gt; ShipValidationConstants.SCOUTINGACCELMIN</span>
+<span class="fc" id="L72">        ShipType.COORDINATING -&gt; ShipValidationConstants.COORDINATINGACCELMIN</span>
+<span class="fc" id="L73">        ShipType.COLLECTING -&gt; ShipValidationConstants.COLLECTINGACCELMIN</span>
+<span class="pc" id="L74">        ShipType.REFUELING -&gt; TODO()</span>
+<span class="fc" id="L75">    }</span>
+
+internal val ShipType.accelMax: Int
+<span class="pc bpc" id="L78" title="1 of 4 branches missed.">    get() = when (this) {</span>
+<span class="fc" id="L79">        ShipType.SCOUTING -&gt; ShipValidationConstants.SCOUTINGACCELMAX</span>
+<span class="fc" id="L80">        ShipType.COORDINATING -&gt; ShipValidationConstants.COORDINATINGACCELMAX</span>
+<span class="fc" id="L81">        ShipType.COLLECTING -&gt; ShipValidationConstants.COLLECTINGACCELMAX</span>
+<span class="pc" id="L82">        ShipType.REFUELING -&gt; TODO()</span>
+<span class="fc" id="L83">    }</span>
+
+internal val ShipType.fuelCapMin: Int
+<span class="pc bpc" id="L86" title="1 of 4 branches missed.">    get() = when (this) {</span>
+<span class="fc" id="L87">        ShipType.SCOUTING -&gt; ShipValidationConstants.SCOUTINGFUELCAPMIN</span>
+<span class="fc" id="L88">        ShipType.COORDINATING -&gt; ShipValidationConstants.COORDINATINGFUELCAPMIN</span>
+<span class="fc" id="L89">        ShipType.COLLECTING -&gt; ShipValidationConstants.COLLECTINGFUELCAPMIN</span>
+<span class="pc" id="L90">        ShipType.REFUELING -&gt; TODO()</span>
+<span class="fc" id="L91">    }</span>
+internal val ShipType.fuelCapMax: Int
+<span class="pc bpc" id="L93" title="1 of 4 branches missed.">    get() = when (this) {</span>
+<span class="fc" id="L94">        ShipType.SCOUTING -&gt; ShipValidationConstants.SCOUTINGFUELCAPMAX</span>
+<span class="fc" id="L95">        ShipType.COORDINATING -&gt; ShipValidationConstants.COORDINATINGFUELCAPMAX</span>
+<span class="fc" id="L96">        ShipType.COLLECTING -&gt; ShipValidationConstants.COLLECTINGFUELCAPMAX</span>
+<span class="pc" id="L97">        ShipType.REFUELING -&gt; TODO()</span>
+<span class="fc" id="L98">    }</span>
+
+internal val ShipType.fuelConsumpMin: Int
+<span class="pc bpc" id="L101" title="1 of 4 branches missed.">    get() = when (this) {</span>
+<span class="fc" id="L102">        ShipType.SCOUTING -&gt; ShipValidationConstants.SCOUTINGFUELCONSUMPMIN</span>
+<span class="fc" id="L103">        ShipType.COORDINATING -&gt; ShipValidationConstants.COORDINATINGFUELCONSUMPMIN</span>
+<span class="fc" id="L104">        ShipType.COLLECTING -&gt; ShipValidationConstants.COLLECTINGFUELCONSUMPMIN</span>
+<span class="pc" id="L105">        ShipType.REFUELING -&gt; TODO()</span>
+<span class="fc" id="L106">    }</span>
+
+internal val ShipType.fuelConsumpMax: Int
+<span class="pc bpc" id="L109" title="1 of 4 branches missed.">    get() = when (this) {</span>
+<span class="fc" id="L110">        ShipType.SCOUTING -&gt; ShipValidationConstants.SCOUTINGFUELCONSUMPMAX</span>
+<span class="fc" id="L111">        ShipType.COORDINATING -&gt; ShipValidationConstants.COORDINATINGFUELCONSUMPMAX</span>
+<span class="fc" id="L112">        ShipType.COLLECTING -&gt; ShipValidationConstants.COLLECTINGFUELCONSUMPMAX</span>
+<span class="pc" id="L113">        ShipType.REFUELING -&gt; TODO()</span>
+<span class="fc" id="L114">    }</span>
+
+internal val ShipType.visRangeMin: Int
+<span class="pc bpc" id="L117" title="1 of 4 branches missed.">    get() = when (this) {</span>
+<span class="fc" id="L118">        ShipType.SCOUTING -&gt; ShipValidationConstants.SCOUTINGVISRANGEMIN</span>
+<span class="fc" id="L119">        ShipType.COORDINATING -&gt; ShipValidationConstants.COORDINATINGVISRANGEMIN</span>
+<span class="fc" id="L120">        ShipType.COLLECTING -&gt; ShipValidationConstants.COLLECTINGVISRANGEMIN</span>
+<span class="pc" id="L121">        ShipType.REFUELING -&gt; TODO()</span>
+<span class="fc" id="L122">    }</span>
+
+internal val ShipType.visRangeMax: Int
+<span class="pc bpc" id="L125" title="1 of 4 branches missed.">    get() = when (this) {</span>
+<span class="fc" id="L126">        ShipType.SCOUTING -&gt; ShipValidationConstants.SCOUTINGVISRANGEMAX</span>
+<span class="fc" id="L127">        ShipType.COORDINATING -&gt; ShipValidationConstants.COORDINATINGVISRANGEMAX</span>
+<span class="fc" id="L128">        ShipType.COLLECTING -&gt; ShipValidationConstants.COLLECTINGVISRANGEMAX</span>
+<span class="pc" id="L129">        ShipType.REFUELING -&gt; TODO()</span>
+<span class="fc" id="L130">    }</span>
+
+internal val GarbageType.minCap: Int
+<span class="pc bpc" id="L133" title="1 of 3 branches missed.">    get() = when (this) {</span>
+<span class="fc" id="L134">        GarbageType.PLASTIC -&gt; ShipValidationConstants.PLASTICCAPMIN</span>
+<span class="fc" id="L135">        GarbageType.OIL -&gt; ShipValidationConstants.OILCAPMIN</span>
+<span class="nc" id="L136">        GarbageType.CHEMICALS -&gt; ShipValidationConstants.CHEMCAPMIN</span>
+<span class="fc" id="L137">    }</span>
+
+internal val GarbageType.maxCap: Int
+<span class="pc bpc" id="L140" title="1 of 3 branches missed.">    get() = when (this) {</span>
+<span class="fc" id="L141">        GarbageType.PLASTIC -&gt; ShipValidationConstants.PLASTICCAPMAX</span>
+<span class="fc" id="L142">        GarbageType.OIL -&gt; ShipValidationConstants.OILCAPMAX</span>
+<span class="nc" id="L143">        GarbageType.CHEMICALS -&gt; ShipValidationConstants.CHEMCAPMAX</span>
+<span class="fc" id="L144">    }</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
